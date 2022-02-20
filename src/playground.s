@@ -15,7 +15,6 @@ PADDLE_HEIGHT = 4
 
     nmi_handler_done:   .res 1
 
-    oam_stack_start:    .res 1
     oam_stack_idx:      .res 1
     OAM_RESERVED = 1
     OAM_RESERVED_END = 4 * OAM_RESERVED
@@ -103,6 +102,70 @@ PADDLE_HEIGHT = 4
     STA ppudata
 .endmacro
 
+.macro MAIN_LOOP 
+    .local main_loop
+    main_loop:
+        ;;; read controller input
+        .import read_inputs
+        .importzp joy0_state
+        JSR read_inputs
+
+        LDA #$3F 
+        STA render_queue+0
+        LDA #$00
+        STA render_queue+1 
+        LDA #1
+        STA render_queue+2 
+        LDA #RENDER_IMMEDIATE
+        STA render_queue+3
+        LDA frame 
+        STA render_queue+4
+        LDA #5
+        STA render_queue_len
+
+        ;;; if up button is pressed, move paddle up by 1.33 px
+        LDA #JOY_BUTTON_UP
+        BIT joy0_state
+        BEQ :+ 
+            SEC 
+            LDA paddle0_sub_y
+            SBC #%01010101
+            STA paddle0_sub_y
+
+            LDA paddle0_y
+            SBC #1
+            STA paddle0_y
+        :
+
+        ;;; if down button is pressed, move paddle down by 1.33 px
+        LDA #JOY_BUTTON_DOWN
+        BIT joy0_state
+        BEQ :+
+            CLC 
+            LDA paddle0_sub_y 
+            ADC #%01010101
+            STA paddle0_sub_y
+
+            LDA paddle0_y
+            ADC #1
+            STA paddle0_y
+        :
+
+        LDA #OAM_RESERVED_END
+        STA oam_stack_idx
+
+        LDA #50
+        STA temp+0
+        LDA paddle0_y
+        STA temp+1
+        LDX #5
+        JSR draw_paddle
+        JSR hide_unused_oam
+
+        JSR wait_nmi
+        INC frame
+        JMP main_loop
+.endmacro 
 
 .proc handle_reset
     SEI             ; disable IRQs 
@@ -158,76 +221,7 @@ PADDLE_HEIGHT = 4
     STA local_ppuctrl
     STA ppuctrl
 
-    mainloop:
-        ;;; read controller input
-        .import read_inputs
-        .importzp joy0_state
-        JSR read_inputs
-
-        LDA #$3F 
-        STA render_queue+0
-        LDA #$00
-        STA render_queue+1 
-        LDA #1
-        STA render_queue+2 
-        LDA #RENDER_IMMEDIATE
-        STA render_queue+3
-        LDA frame 
-        STA render_queue+4
-        LDA #5
-        STA render_queue_len
-
-        ;;; if up button is pressed, move paddle up by 1.33 px
-        LDA #JOY_BUTTON_UP
-        BIT joy0_state
-        BEQ :+ 
-            SEC 
-            LDA paddle0_sub_y
-            SBC #%01010101
-            STA paddle0_sub_y
-
-            LDA paddle0_y
-            SBC #1
-            STA paddle0_y
-        :
-
-        ;;; if down button is pressed, move paddle down by 1.33 px
-        LDA #JOY_BUTTON_DOWN
-        BIT joy0_state
-        BEQ :+
-            CLC 
-            LDA paddle0_sub_y 
-            ADC #%01010101
-            STA paddle0_sub_y
-
-            LDA paddle0_y
-            ADC #1
-            STA paddle0_y
-        :
-
-        ;;; move OAM stack start address
-        LDA oam_stack_start
-        CLC 
-        ADC #(40 * 4)            
-        
-        ;;; if overflowed then skip reserved addresses
-        BCC :+
-            ADC #(OAM_RESERVED_END-1)
-        :
-        STA oam_stack_start
-        STA oam_stack_idx
-
-        LDA #50
-        STA temp+0
-        LDA paddle0_y
-        STA temp+1
-        LDX #5
-        JSR draw_paddle
-        JSR hide_unused_oam
-
-        JSR wait_nmi
-        INC frame
-        JMP mainloop
+    MAIN_LOOP
 .endproc
 
 
@@ -278,15 +272,7 @@ PADDLE_HEIGHT = 4
     TYA 
     CLC 
     ADC #4 
-
-    ;;; if overflow to index zero, skip reserved sprites
-    BNE :+
-        LDA #OAM_RESERVED_END
-    :
-
-    ;;; update oam stack index
     STA oam_stack_idx
-
     RTS 
 .endproc 
 
@@ -348,12 +334,6 @@ PADDLE_HEIGHT = 4
             INX 
         .endrepeat
     
-        ;;; if overflow, skip reserved sprites
-        BNE :+
-            LDX #OAM_RESERVED_END
-        :
-
-        CPX oam_stack_start
         BNE loop
 
     RTS
