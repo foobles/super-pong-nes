@@ -1,6 +1,7 @@
 .linecont +
 .include "ppu_inc.s"
 .include "chars_inc.s"
+.include "render_inc.s"
 .include "input_inc.s"
 
 .globalzp temp 
@@ -10,14 +11,6 @@ PADDLE_HEIGHT = 4
 .zeropage
     temp:           .res 16
     frame:          .res 1
-    local_ppuctrl:  .res 1
-    local_ppumask:  .res 1
-
-    nmi_handler_done:   .res 1
-
-    oam_stack_idx:      .res 1
-    OAM_RESERVED = 1
-    OAM_RESERVED_END = 4 * OAM_RESERVED
 
     ;;; obj data
     paddle0_y:      .res 1
@@ -26,81 +19,9 @@ PADDLE_HEIGHT = 4
     paddle1_sub_y:  .res 1
 
 
-.bss
-    local_oam:    
-        .align $100
-        .res $100
 
-    render_queue: .res $80
-    render_queue_len: .res 1
 
 .code 
-.proc handle_nmi
-    ;;; clear latch
-    BIT ppustatus
-
-    ;;; update sprites
-    LDA #>local_oam
-    STA oamdma
-
-    ;;; process render queue
-    .import process_render_queue
-    LDA #<render_queue
-    STA temp+0 
-    LDA #>render_queue
-    STA temp+1
-    LDA render_queue_len
-    STA temp+2
-    JSR process_render_queue
-    
-    ;;; update ppuctrl
-    BIT ppustatus
-    LDA local_ppuctrl
-    STA ppuctrl
-
-    ;;; update scroll position
-    LDA #0          
-    STA ppuscroll   ; x scroll
-    STA ppuscroll   ; y scroll
-    STA render_queue_len        ; reset queue length for next frame
-
-    ;;; set bit 7 of nmi_handler_done
-    LDA #(1 << 7)
-    STA nmi_handler_done
-
-    RTI
-.endproc
-
-
-;;; assume w = 0, vram inc = 1
-.macro INIT_GAME_PALETTES
-    LDA #>ppu_palette_table
-    STA ppuaddr
-    LDA #<ppu_palette_table
-    STA ppuaddr
-
-    LDA #$0F    ; background color black
-    STA ppudata
-    LDA #$25    ; pink
-    STA ppudata
-    LDA #$35    ; highlight
-    STA ppudata
-    LDA #$16    ; shadow
-    STA ppudata
-
-    ;;; sprite palette
-    LDA #$3F
-    STA ppuaddr 
-    LDA #$11
-    STA ppuaddr
-    
-    LDA #$20    ; white 
-    STA ppudata
-    LDA #$21    ; light blue 
-    STA ppudata 
-    LDA #$02    ; dark blue
-    STA ppudata
-.endmacro
 
 .macro MAIN_LOOP 
     .local main_loop
@@ -109,19 +30,6 @@ PADDLE_HEIGHT = 4
         .import read_inputs
         .importzp joy0_state
         JSR read_inputs
-
-        LDA #$3F 
-        STA render_queue+0
-        LDA #$00
-        STA render_queue+1 
-        LDA #1
-        STA render_queue+2 
-        LDA #RENDER_IMMEDIATE
-        STA render_queue+3
-        LDA frame 
-        STA render_queue+4
-        LDA #5
-        STA render_queue_len
 
         ;;; if up button is pressed, move paddle up by 1.33 px
         LDA #JOY_BUTTON_UP
@@ -151,6 +59,7 @@ PADDLE_HEIGHT = 4
             STA paddle0_y
         :
 
+        .importzp oam_stack_idx 
         LDA #OAM_RESERVED_END
         STA oam_stack_idx
 
@@ -160,6 +69,8 @@ PADDLE_HEIGHT = 4
         STA temp+1
         LDX #5
         JSR draw_paddle
+
+        .import hide_unused_oam
         JSR hide_unused_oam
 
         JSR wait_nmi
@@ -202,11 +113,8 @@ PADDLE_HEIGHT = 4
     frame1: BIT ppustatus
             BPL frame1
 
-    INIT_GAME_PALETTES
-
-    JSR init_title_screen
-
     ;;; enable NMI and rendering
+    .importzp local_ppuctrl, local_ppumask
     LDA #PPUMASK_SHOW_ALL
     STA local_ppumask
     STA ppumask
@@ -217,7 +125,6 @@ PADDLE_HEIGHT = 4
             | PPUCTRL_SPRITE_TABLE{1} \
             | PPUCTRL_NAMETABLE{0} \
             | PPUCTRL_VRAM_INC_1
-
     STA local_ppuctrl
     STA ppuctrl
 
@@ -230,6 +137,7 @@ PADDLE_HEIGHT = 4
 .endproc
 
 .proc wait_nmi
+    .importzp nmi_handler_done
     loop:
         BIT nmi_handler_done
         BPL loop                ; NMI handler sets bit 7 when done processing
@@ -238,45 +146,8 @@ PADDLE_HEIGHT = 4
 .endproc
 
 
-;;; parameters:
-;;;     A:          pattern
-;;;     temp+0:  X position
-;;;     temp+1:  Y position
-;;;     temp+2:  attributes
-;;; overwrites:
-;;;     A, Y
-.proc push_tile
-    Y_OFFSET = 0
-    P_OFFSET = 1
-    A_OFFSET = 2
-    X_OFFSET = 3
-
-    x_pos = temp+0
-    y_pos = temp+1
-    attrs = temp+2
-
-    LDY oam_stack_idx
-
-    STA local_oam+P_OFFSET,Y    ; store pattern
-    
-    LDA x_pos
-    STA local_oam+X_OFFSET,Y    ; store X position 
-
-    LDA y_pos
-    STA local_oam+Y_OFFSET,Y    ; store Y position 
-
-    LDA attrs 
-    STA local_oam+A_OFFSET,Y    ; store attributes
-
-    ;;; move index to next sprite
-    TYA 
-    CLC 
-    ADC #4 
-    STA oam_stack_idx
-    RTS 
-.endproc 
-
 .proc draw_paddle
+    .import push_tile 
     x_pos = temp+0
     y_pos = temp+1
     attrs = temp+2
@@ -317,90 +188,13 @@ PADDLE_HEIGHT = 4
         
         LDA #CHR1_PADDLE_END
         JSR push_tile
-    
-    RTS
-.endproc
-
-
-
-.proc hide_unused_oam
-    LDA #$FF 
-    LDX oam_stack_idx
-    loop:
-        STA local_oam,X   ; store #$FF into current sprite Y position
-
-        ;;; go to next sprite index
-        .repeat 4 
-            INX 
-        .endrepeat
-    
-        BNE loop
 
     RTS
 .endproc
-
-
-;;; only use when rendering is off, vram inc is 1
-;;; overwrites temp+0
-.proc init_title_screen
-    LOGO_START_X = 5
-    LOGO_START_Y = 6
-
-    CLC 
-
-    ;;; load nametable 0 address
-    LDA #$20
-    STA ppuaddr
-    LDA #$00
-    STA ppuaddr
-
-    ;;; clear first rows
-    LDA #CHR0_BLANK
-    LDX #(32 * LOGO_START_Y)
-    :
-        STA ppudata
-        DEX 
-        BNE :- 
-
-    
-    ;;; draw logo 
-    LDA #CHR0_LOGO_START
-    STA temp+0              
-    LDA #CHR0_BLANK
-    LDX #4
-    render_logo_line:
-        LDY #LOGO_START_X
-        :
-            STA ppudata
-            DEY 
-            BNE :- 
-
-        LDA temp+0
-        LDY #16
-        :
-            STA ppudata
-            ADC #1 
-            DEY 
-            BNE :-
-        STA temp+0
-
-        LDA #CHR0_BLANK
-        LDY #(32 - (LOGO_START_X + 16))
-        :
-            STA ppudata
-            DEY 
-            BNE :- 
-
-        DEX 
-        BNE render_logo_line
-
-
-    
-
-    RTS 
-.endproc 
 
 .segment "VECTORS"
+    .import handle_nmi
+
     .addr handle_nmi
     .addr handle_reset
     .addr handle_irq
