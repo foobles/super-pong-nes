@@ -128,6 +128,17 @@ PADDLE_HEIGHT = 4
     STA local_ppuctrl
     STA ppuctrl
 
+
+    .import process_render_queue
+    .import palette_setup_render_buf, PALETTE_SETUP_RENDER_BUF_LEN:zeropage
+    LDA #<palette_setup_render_buf
+    STA temp+0
+    LDA #>palette_setup_render_buf
+    STA temp+1
+    LDA #PALETTE_SETUP_RENDER_BUF_LEN
+    STA temp+2
+    JSR process_render_queue
+
     MAIN_LOOP
 .endproc
 
