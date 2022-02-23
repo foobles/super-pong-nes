@@ -187,20 +187,17 @@ PADDLE_HEIGHT = 4
 
     ;;; draw bottom of paddle
 
-        ;;; add 8 to y position
-        LDA y_pos                  
-        CLC 
-        ADC #8 
-        STA y_pos
+    ;;; add 8 to y position
+    LDA y_pos                  
+    CLC
+    ADC #8 
+    STA y_pos
 
-        LDA #SPRITE_ATTR_PALETTE{0} \
-                | SPRITE_ATTR_FLIP_V    
-        STA attrs                       ; pass flipped attr for bottom
-        
-        LDA #CHR1_PADDLE_END
-        JSR push_tile
-
-    RTS
+    LDA #SPRITE_ATTR_PALETTE{0} | SPRITE_ATTR_FLIP_V    
+    STA attrs                       ; pass flipped attr for bottom
+    
+    LDA #CHR1_PADDLE_END
+    JMP push_tile                   ; tail call
 .endproc
 
 .segment "VECTORS"
