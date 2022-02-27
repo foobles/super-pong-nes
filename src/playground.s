@@ -117,7 +117,6 @@ PADDLE_HEIGHT = 4
     .importzp local_ppuctrl, local_ppumask
     LDA #PPUMASK_SHOW_ALL
     STA local_ppumask
-    STA ppumask
 
     LDA #PPUCTRL_ENABLE_NMI \
             | PPUCTRL_VRAM_INC_1 \
@@ -126,7 +125,6 @@ PADDLE_HEIGHT = 4
             | PPUCTRL_NAMETABLE{0} \
             | PPUCTRL_VRAM_INC_1
     STA local_ppuctrl
-    STA ppuctrl
 
 
     .import process_render_queue
@@ -138,6 +136,23 @@ PADDLE_HEIGHT = 4
     LDA #PALETTE_SETUP_RENDER_BUF_LEN
     STA temp+2
     JSR process_render_queue
+
+    .import process_compressed
+    .import title_screen_render_buf
+    LDA #$20
+    STA ppuaddr
+    LDA #$00
+    STA ppuaddr
+    LDA #<title_screen_render_buf
+    STA temp+0
+    LDA #>title_screen_render_buf
+    STA temp+1
+    JSR process_compressed
+
+    LDA local_ppumask
+    STA ppumask
+    LDA local_ppuctrl
+    STA ppuctrl
 
     MAIN_LOOP
 .endproc
