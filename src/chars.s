@@ -56,42 +56,39 @@ title_screen_render_buf:
     .byte $00                       ; fill with empty
 
 
-    ;;; immediate   draw SUPER top row
-    .byte 8         ; len
-    .byte $89, $8A, $8B, $8C, $8D, $8E, $8F, $91
+    ;;; draw SUPER
+        .byte 8         ; len
+        .byte $88, $89, $8A, $8B, $8C, $8D, $8E, $8F
+        .byte NT_WIDTH - 8  ; go to next line
+        .byte $00
 
-    .byte NT_WIDTH - 8  ; go to next line
-    .byte $00
-
-    ;;; immediate   draw SUPER bottom row
-    .byte 8         ; len
-    .byte $99, $9A, $9B, $9C, $9D, $9E, $9F, $92
-
-    .byte NT_WIDTH - 8 ; go to next line
-    .byte $00
+        .byte 8         ; len
+        .byte $90, $91, $92, $93, $94, $95, $96, $97
+        .byte NT_WIDTH - 8 ; go to next line
+        .byte $00
 
     ;;; draw PONG
         ;;; row 0
         .byte 16        
-        .byte $40,$41,$42,$43,$44,$45,$46,$47,$48,$49,$4A,$4B,$4C,$4D,$4E,$4F
+        .byte $40,$42,$43,$44, $45,$46,$47,$48, $40,$49,$4A,$41, $45,$46,$42,$4D
         .byte NT_WIDTH - 16 ; go to next line
         .byte $00
 
         ;;; row 1
         .byte 16        
-        .byte $50,$51,$52,$53,$54,$55,$56,$57,$58,$59,$5A,$5B,$5C,$5D,$5E,$5F
+        .byte $50,$52,$53,$54, $55,$56,$57,$58, $50,$59,$5A,$51, $55,$70,$71,$72
         .byte NT_WIDTH - 16 ; go to next line
         .byte $00
 
         ;;; row 2 (dropdown begins here, hence 17 bytes)
         .byte 17        
-        .byte $60,$61,$62,$63,$64,$65,$66,$67,$68,$69,$6A,$6B,$6C,$6D,$6E,$6F,$80
+        .byte $50,$62,$63,$64, $65,$66,$67,$68, $50,$69,$6A,$51, $4B,$5B,$6B,$7B,$5D
         .byte NT_WIDTH - 17 ; go to next line
         .byte $00
 
         ;;; row 3
         .byte 17        
-        .byte $70,$71,$72,$73,$74,$75,$76,$77,$78,$79,$7A,$7B,$7C,$7D,$7E,$7F,$90
+        .byte $60,$61,$73,$74, $75,$76,$77,$78, $60,$79,$7A,$61, $4C,$5C,$6C,$7C,$6D
 
     .byte 0             ; end
     end: 
