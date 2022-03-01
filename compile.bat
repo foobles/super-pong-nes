@@ -1,3 +1,5 @@
+rem this is a temporary. actual makefile WIP
+
 ca65    src/header.s        -o obj/header.o 
 ca65    src/chars.s         -o obj/chars.o      --bin-include-dir gfx/
 ca65    src/input.s         -o obj/input.o
