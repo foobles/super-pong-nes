@@ -1,4 +1,9 @@
+@echo off
+
 rem this is a temporary. actual makefile WIP
+
+if not exist "./bin/" mkdir "bin"
+if not exist "./obj/" mkdir "obj"
 
 ca65    src/header.s        -o obj/header.o 
 ca65    src/chars.s         -o obj/chars.o      --bin-include-dir gfx/
