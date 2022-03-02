@@ -90,6 +90,22 @@ title_screen_render_buf:
         .byte 17        
         .byte $60,$61,$73,$74, $75,$76,$77,$78, $60,$79,$7A,$61, $4C,$5C,$6C,$7C,$6D
 
+    ;;; fill rest of screen with black
+    ;;; 30 - 3 (header) - 2 ("SUPER") - 4 ("PONG") = 21 remaining rows = 672 bytes 
+    ;;; then add remaining bytes in this line = NT_WIDTH - H_OFFSET - 17  
+    ;;; total bytes remaining: 687 - H_OFFSET
+
+    .byte 255, $00              ; 432 - H_OFFSET remaining
+    .byte 0
+    .byte 255, $00              ; 177 - H_OFFSET remaining 
+    .byte 0
+    .byte (177 - H_OFFSET), $00 ; 0 remaining
+    .byte 0 
+    
+    ;;; attr table
+    .byte $40, $00      ; palette zero
+    .byte 0 
+
     .byte 0             ; end
     end: 
 .endscope
