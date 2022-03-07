@@ -6,15 +6,15 @@
 
 .globalzp temp, frame
 
-PADDLE_HEIGHT = 4
+PADDLE_HEIGHT = 6
 
 .zeropage
     temp:           .res 8
     frame:          .res 1
 
-.code 
+.code
 
-.macro MAIN_LOOP 
+.macro MAIN_LOOP
     .local main_loop
     main_loop:
         ;;; read controller input
@@ -22,7 +22,7 @@ PADDLE_HEIGHT = 4
         .importzp joy0_state
         JSR read_inputs
 
-        .importzp oam_stack_idx 
+        .importzp oam_stack_idx
         LDA #OAM_RESERVED_END
         STA oam_stack_idx
 
@@ -38,20 +38,20 @@ PADDLE_HEIGHT = 4
         JSR wait_nmi
         INC frame
         JMP main_loop
-.endmacro 
+.endmacro
 
 .proc handle_reset
-    SEI             ; disable IRQs 
+    SEI             ; disable IRQs
     CLD             ; disable binary-encoded-decimal mode
 
     LDX #$FF
     TXS             ; reset stack pointer
-    
+
     INX             ; X = #$00
     STX ppuctrl     ; disable NMIs
     STX ppumask     ; disable rendering
 
-    BIT ppustatus   ; clear VBL bit 
+    BIT ppustatus   ; clear VBL bit
 
     ;;; wait for PPU to warm up
     frame0: BIT ppustatus
@@ -60,7 +60,7 @@ PADDLE_HEIGHT = 4
     ;;; zero out ram between 2 frame wait
     TXA     ; A = #0
     clear_ram:
-        STA $00, X 
+        STA $00, X
         STA $0100, X
         STA $0200, X
         STA $0300, X
@@ -68,9 +68,9 @@ PADDLE_HEIGHT = 4
         STA $0500, X
         STA $0600, X
         STA $0700, X
-        INX 
+        INX
         BNE clear_ram
-    
+
     ;;; wait for next frame
     frame1: BIT ppustatus
             BPL frame1
@@ -130,49 +130,49 @@ PADDLE_HEIGHT = 4
         BIT nmi_handler_done
         BPL loop                ; NMI handler sets bit 7 when done processing
     ASL nmi_handler_done        ; shift off bit, set to 0
-    RTS 
+    RTS
 .endproc
 
 
 .proc draw_paddle
-    .import push_tile 
+    .import push_tile
     x_pos = temp+0
     y_pos = temp+1
     attrs = temp+2
 
     ;;; draw top of paddle
-        ;;; assume X and Y already placed in temp 
+        ;;; assume X and Y already placed in temp
         LDA #SPRITE_ATTR_PALETTE{0}
-        STA attrs                       ; pass attribute parameter 
-        LDA #CHR1_PADDLE_END ; pass pattern parameter 
+        STA attrs                       ; pass attribute parameter
+        LDA #CHR1_PADDLE_END ; pass pattern parameter
         JSR push_tile
 
-    ;;; draw middle blocks 
+    ;;; draw middle blocks
     draw_mid_sprite:
         ;;; add 8 to y position
-        LDA y_pos                    
-        CLC 
+        LDA y_pos
+        CLC
         ADC #8
-        STA y_pos    
-        
-        LDA #CHR1_PADDLE_MID ; pass pattern parameter 
+        STA y_pos
+
+        LDA #CHR1_PADDLE_MID ; pass pattern parameter
         JSR push_tile
 
-        DEX 
+        DEX
         BNE draw_mid_sprite
 
 
     ;;; draw bottom of paddle
 
     ;;; add 8 to y position
-    LDA y_pos                  
+    LDA y_pos
     CLC
-    ADC #8 
+    ADC #8
     STA y_pos
 
-    LDA #SPRITE_ATTR_PALETTE{0} | SPRITE_ATTR_FLIP_V    
+    LDA #SPRITE_ATTR_PALETTE{0} | SPRITE_ATTR_FLIP_V
     STA attrs                       ; pass flipped attr for bottom
-    
+
     LDA #CHR1_PADDLE_END
     JMP push_tile                   ; tail call
 .endproc
@@ -185,4 +185,3 @@ PADDLE_HEIGHT = 4
     .addr handle_irq
 
 
-    
