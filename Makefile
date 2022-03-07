@@ -2,7 +2,7 @@
 
 # update sources manually here
 # everything else should be automatic
-SOURCES = playground.s chars.s render.s input.s header.s 
+SOURCES = playground.s chars.s render.s input.s header.s actors.s
 
 AS = ca65
 LD = ld65

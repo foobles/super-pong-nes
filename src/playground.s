@@ -4,22 +4,13 @@
 .include "render_inc.s"
 .include "input_inc.s"
 
-.globalzp temp 
+.globalzp temp, frame
 
 PADDLE_HEIGHT = 4
 
 .zeropage
-    temp:           .res 16
+    temp:           .res 8
     frame:          .res 1
-
-    ;;; obj data
-    paddle0_y:      .res 1
-    paddle0_sub_y:  .res 1
-    paddle1_y:      .res 1
-    paddle1_sub_y:  .res 1
-
-
-
 
 .code 
 
@@ -31,41 +22,12 @@ PADDLE_HEIGHT = 4
         .importzp joy0_state
         JSR read_inputs
 
-        ;;; if up button is pressed, move paddle up by 1.33 px
-        LDA #JOY_BUTTON_UP
-        BIT joy0_state
-        BEQ :+ 
-            SEC 
-            LDA paddle0_sub_y
-            SBC #%01010101
-            STA paddle0_sub_y
-
-            LDA paddle0_y
-            SBC #1
-            STA paddle0_y
-        :
-
-        ;;; if down button is pressed, move paddle down by 1.33 px
-        LDA #JOY_BUTTON_DOWN
-        BIT joy0_state
-        BEQ :+
-            CLC 
-            LDA paddle0_sub_y 
-            ADC #%01010101
-            STA paddle0_sub_y
-
-            LDA paddle0_y
-            ADC #1
-            STA paddle0_y
-        :
-
         .importzp oam_stack_idx 
         LDA #OAM_RESERVED_END
         STA oam_stack_idx
 
         LDA #50
         STA temp+0
-        LDA paddle0_y
         STA temp+1
         LDX #5
         JSR draw_paddle
