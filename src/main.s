@@ -26,11 +26,8 @@ PADDLE_HEIGHT = 6
         LDA #OAM_RESERVED_END
         STA oam_stack_idx
 
-        LDA #50
-        STA temp+0
-        STA temp+1
-        LDX #5
-        JSR draw_paddle
+        .import process_actors
+        JSR process_actors
 
         .import hide_unused_oam
         JSR hide_unused_oam
@@ -116,6 +113,20 @@ PADDLE_HEIGHT = 6
     LDA local_ppuctrl
     STA ppuctrl
 
+    .importzp actor_next_idx, actor_flags, actor_ids, actor_xs, actor_ys, actor_data0
+    .import find_next_empty_actor
+    LDX actor_next_idx
+    LDA #%10000000
+    STA actor_flags,X
+    LDA #0
+    STA actor_ids,X
+    LDA #50
+    STA actor_xs,X
+    STA actor_ys,X
+    LDA #3
+    STA actor_data0,X
+    JSR find_next_empty_actor
+
     MAIN_LOOP
 .endproc
 
@@ -134,14 +145,43 @@ PADDLE_HEIGHT = 6
 .endproc
 
 
-.proc draw_paddle
-    .import push_tile
+.export update_paddle
+.proc update_paddle
+    .importzp joy0_state, actor_data0, actor_xs, actor_ys
     x_pos = temp+0
     y_pos = temp+1
     attrs = temp+2
 
+    TXA
+    PHA
+    LDA actor_xs,X
+    STA x_pos
+    LDA actor_ys,X
+    STA y_pos
+
+    test_up:
+    LDA #JOY_BUTTON_UP
+    BIT joy0_state
+    BEQ test_down
+        DEC y_pos
+        JMP end_input
+
+    test_down:
+    LDA #JOY_BUTTON_DOWN
+    BIT joy0_state
+    BEQ end_input
+        INC y_pos
+
+    end_input:
+
+    LDA y_pos
+    STA actor_ys,X
+    LDA actor_data0,X
+    TAX
+
+    .import push_tile
+
     ;;; draw top of paddle
-        ;;; assume X and Y already placed in temp
         LDA #SPRITE_ATTR_PALETTE{0}
         STA attrs                       ; pass attribute parameter
         LDA #CHR1_PADDLE_END ; pass pattern parameter
@@ -163,19 +203,24 @@ PADDLE_HEIGHT = 6
 
 
     ;;; draw bottom of paddle
+        ;;; add 8 to y position
+        LDA y_pos
+        CLC
+        ADC #8
+        STA y_pos
 
-    ;;; add 8 to y position
-    LDA y_pos
-    CLC
-    ADC #8
-    STA y_pos
+        LDA #SPRITE_ATTR_PALETTE{0} | SPRITE_ATTR_FLIP_V
+        STA attrs                       ; pass flipped attr for bottom
 
-    LDA #SPRITE_ATTR_PALETTE{0} | SPRITE_ATTR_FLIP_V
-    STA attrs                       ; pass flipped attr for bottom
+        LDA #CHR1_PADDLE_END
+        JSR push_tile
 
-    LDA #CHR1_PADDLE_END
-    JMP push_tile                   ; tail call
+    PLA
+    TAX
+    JMP (temp+6)
 .endproc
+
+
 
 .segment "VECTORS"
     .import handle_nmi
