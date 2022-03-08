@@ -3,6 +3,7 @@
 .include "chars_inc.s"
 .include "render_inc.s"
 .include "input_inc.s"
+.include "actors_inc.s"
 
 .globalzp temp, frame
 
@@ -113,7 +114,6 @@ PADDLE_HEIGHT = 6
     LDA local_ppuctrl
     STA ppuctrl
 
-    .importzp actor_next_idx, actor_flags, actor_ids, actor_xs, actor_ys, actor_data0
     .import find_next_empty_actor
     LDX actor_next_idx
     LDA #%10000000
@@ -147,7 +147,6 @@ PADDLE_HEIGHT = 6
 
 .export update_paddle
 .proc update_paddle
-    .importzp joy0_state, actor_data0, actor_xs, actor_ys
     x_pos = temp+0
     y_pos = temp+1
     attrs = temp+2
@@ -159,6 +158,7 @@ PADDLE_HEIGHT = 6
     LDA actor_ys,X
     STA y_pos
 
+    .importzp joy0_state
     test_up:
     LDA #JOY_BUTTON_UP
     BIT joy0_state
@@ -217,7 +217,7 @@ PADDLE_HEIGHT = 6
 
     PLA
     TAX
-    JMP (temp+6)
+    JMP (actor_updater_ret_addr)
 .endproc
 
 
