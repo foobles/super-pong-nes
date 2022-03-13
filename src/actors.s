@@ -9,8 +9,8 @@ MAX_ACTORS = 16
     .exportzp actor_flags, actor_ids, actor_xs, actor_ys, actor_updaters_lo, actor_updaters_hi
     ;;; flag format
     ;;; 76543210
-    ;;; |||||||+- [0]   enable collision (other entities can collide with this) [0=off; 1=on]
-    ;;; |++++++-- [1-6] unused
+    ;;; ||++++++- [0-5] for use by actor 
+    ;;; |+------- [6]   enable collision (other entities can collide with this) [0=off; 1=on]
     ;;; +-------- [7]   actor exists [0=empty slot; 1=filled slot]
     ;;;
     ;;; only use the first MAX_ACTORS indices. The +1 at the end acts as a sentinel and should not be overwritten
