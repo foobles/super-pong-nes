@@ -6,7 +6,7 @@
 .export MAX_ACTORS
 MAX_ACTORS = 16
 .zeropage
-    .exportzp actor_flags, actor_ids, actor_xs, actor_ys
+    .exportzp actor_flags, actor_ids, actor_xs, actor_ys, actor_updaters_lo, actor_updaters_hi
     ;;; flag format
     ;;; 76543210
     ;;; |||||||+- [0]   enable collision (other entities can collide with this) [0=off; 1=on]
@@ -21,28 +21,27 @@ MAX_ACTORS = 16
     ;;; screen positions for use by renderer and collision check
     actor_xs:       .res MAX_ACTORS
     actor_ys:       .res MAX_ACTORS
-
-    ;;; actor specific data
-    ;;; for use by actor-specific updater and renderer routines
-    .exportzp actor_data0, actor_data1,  actor_data2,  actor_data3
-    actor_data0:    .res MAX_ACTORS
-    actor_data1:    .res MAX_ACTORS
-    actor_data2:    .res MAX_ACTORS
-    actor_data3:    .res MAX_ACTORS
+    ;;; updater routine address for actor (detailed below)
+    actor_updaters_lo:  .res MAX_ACTORS
+    actor_updaters_hi:  .res MAX_ACTORS
 
     .exportzp actor_count, actor_next_idx
     actor_count:    .res 1  ; number of existing actors
     actor_next_idx: .res 1  ; lowest index of actor with bit 7 = 0
 
+.bss 
+    ;;; actor specific data
+    ;;; for use by actor-specific updater and renderer routines
+    .export actor_data0, actor_data1,  actor_data2,  actor_data3
+    actor_data0:    .res MAX_ACTORS
+    actor_data1:    .res MAX_ACTORS
+    actor_data2:    .res MAX_ACTORS
+    actor_data3:    .res MAX_ACTORS
 
-.rodata
-    ;;; update list as more actor types are created
-    .define UPDATER_LIST update_paddle
-
-    .import UPDATER_LIST
-    actor_updaters_lo:  .lobytes UPDATER_LIST
-    actor_updaters_hi:  .hibytes UPDATER_LIST
-
+    .export actor_updater_ret_addr
+    actor_updater_ret_addr:
+        .align 2 
+        .res 2 
 
 .code
 
@@ -93,25 +92,23 @@ MAX_ACTORS = 16
 
 .macro PROCESS_ACTOR updater_return_label
     .local call_addr
-    call_addr = temp+2          ; 2 byte address
+    call_addr = temp+0          ; 2 byte address
     LDA actor_flags,X
     BPL updater_return_label    ; skip nonexistant actors
         ;;; fetch update routine index
-        LDY actor_ids,X
-        LDA actor_updaters_lo,Y
+        LDA actor_updaters_lo,X
         STA call_addr+0
-        LDA actor_updaters_hi,Y
+        LDA actor_updaters_hi,X 
         STA call_addr+1
         JMP (call_addr)         ; dive into the update routine
     updater_return_label:
 .endmacro
 
 ;;; overwrites:
-;;;     A,X,temp+0.1
+;;;     A, X, temp+0.1, actor_updater_ret_addr
 .export process_actors
 .proc process_actors
-    ret_addr = temp+6   ; 2 byte address
-
+    ret_addr = actor_updater_ret_addr   ; the name is long
     ;;; switch between forward iteration and backward iteration
     ;;; every frame so that rendering produces flicker automatically
     LDA frame
@@ -148,10 +145,10 @@ MAX_ACTORS = 16
 
 ;;; calling convention for update routines:
 ;;; parameters:
-;;;     X:          index of actor being updated
-;;;     temp+6.7:   return address
+;;;     X:                          index of actor being updated
+;;;     actor_updater_ret_addr:     return address
 ;;;
 ;;; must preserve:
-;;;     X, temp+6.7
+;;;     X, actor_updater_ret_addr
 ;;;
-;;; return by jumping to address stored in temp+6.7
+;;; return by JMP (actor_updater_ret_addr) or equivalent 

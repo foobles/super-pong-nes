@@ -118,6 +118,10 @@ PADDLE_HEIGHT = 6
     LDX actor_next_idx
     LDA #%10000000
     STA actor_flags,X
+    LDA #<update_paddle
+    STA actor_updaters_lo,X 
+    LDA #>update_paddle
+    STA actor_updaters_hi,X 
     LDA #0
     STA actor_ids,X
     LDA #50
