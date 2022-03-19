@@ -30,6 +30,13 @@ MAX_ACTORS = 16
     actor_next_idx: .res 1  ; lowest index of actor with bit 7 = 0
 
 .bss 
+    ;;; collision data
+    .export actor_collisions_x, actor_collisions_y, actor_collisions_w, actor_collisions_h
+    actor_collisions_x: .res MAX_ACTORS
+    actor_collisions_y: .res MAX_ACTORS
+    actor_collisions_w: .res MAX_ACTORS
+    actor_collisions_h: .res MAX_ACTORS
+
     ;;; actor specific data
     ;;; for use by actor-specific updater and renderer routines
     .export actor_data0, actor_data1,  actor_data2,  actor_data3
@@ -152,3 +159,62 @@ MAX_ACTORS = 16
 ;;;     X, actor_updater_ret_addr
 ;;;
 ;;; return by JMP (actor_updater_ret_addr) or equivalent 
+
+
+;;; parameters:
+;;;     temp+0: hitbox left x
+;;;     temp+1: hitbox top y
+;;;     temp+2: hitbox right x
+;;;     temp+3: hitbox bottom y
+;;; output:
+;;;     C:  did collide [0=false; 1=true]
+;;;     Y:  index of collided actor (only if C is set) 
+;;; overwrites:
+;;;     A, Y
+;;; notes:
+;;;     Remember to consider how an actor may collide with itself
+;;;     if you are not careful.
+.export check_actor_collisions
+.proc check_actor_collisions
+    left_x      = temp+0
+    top_y       = temp+1
+    right_x     = temp+2
+    bottom_y    = temp+3
+
+    LDY #MAX_ACTORS 
+
+    continue_clc:
+    CLC 
+    continue:
+    DEY
+    BMI ret             ; loop until X = -1 (please dont have 128+ MAX_ACTORS)
+
+        LDA actor_flags,Y 
+        AND #%01000000   
+        BEQ continue    ; skip if flag bit 6 (collision enable) is not set
+
+        LDA actor_xs,Y
+        ADC actor_collisions_x,Y 
+        CMP right_x             ; check hitbox right side is not left of the actor
+        BCS continue_clc
+        ADC actor_collisions_w,Y 
+        CMP left_x              ; check hitbox left side is not right of the actor
+        BCC continue 
+
+        CLC 
+        LDA actor_ys
+        ADC actor_collisions_y,Y 
+        CMP bottom_y            ; check if hitbox bottom side is not above actor
+        BCS continue_clc
+        ADC actor_collisions_h,Y 
+        CMP top_y               ; check if hitbox top side is not below actor
+        BCC continue
+
+    ;;; if we get here by fallthrough, we must be colliding with the current actor
+    ;;; additionally, by the most recent comparison+branch, we know C is set
+
+    ;;; if we get here by a jump, then C must have been cleared by the continue block or comparison
+    ;;; and we did not collide with any actor
+    ret:
+    RTS 
+.endproc 
