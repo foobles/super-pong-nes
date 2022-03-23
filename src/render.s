@@ -72,8 +72,8 @@
 ;;;     temp+2:  attributes
 ;;; overwrites:
 ;;;     A, Y
-.export push_tile
-.proc push_tile
+.export push_sprite
+.proc push_sprite
     Y_OFFSET = 0
     P_OFFSET = 1
     A_OFFSET = 2
