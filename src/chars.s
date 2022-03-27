@@ -38,6 +38,10 @@ palette_setup_render_buf:
         
         ;;; sprite 0
         .byte $21, $20, $11     ; blue, highlight, shadow
+
+        ;;; sprite 1
+        .res 1 
+        .byte $24, $34, $15     ; pink, highlight, shadow
     end: 
 .endscope
 

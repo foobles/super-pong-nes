@@ -136,6 +136,20 @@
     STA ppuaddr
     JSR process_compressed
     
+    ;;; create entities
+    
+    .import find_next_empty_actor
+    
+    ;;; create ball
+    LDX actor_next_idx
+    SET_ACTOR_FLAGS %10000000
+    SET_ACTOR_ID 0
+    SET_ACTOR_POS {256/2}, {240/2}
+    SET_ACTOR_UPDATER update_ball
+    FILL_ACTOR_DATA $00
+
+    JSR find_next_empty_actor
+
     ;;; set state update routine 
     LDA #<game_state_basic
     STA game_state_updater+0
@@ -148,6 +162,136 @@
     .import process_actors
     JSR process_actors
     JMP game_state_updater_ret_addr
+.endproc 
+
+
+.import push_sprite 
+
+;;; ball update procedure to put in actor array
+;;;
+;;; data format:
+;;;     X subpixel position
+;;;     Y subpixel position
+;;;     vertical speed
+.proc update_ball 
+    LEFT_PAD    = 8
+    RIGHT_PAD   = 8
+    TOP_PAD     = 100
+    BOTTOM_PAD  = 32
+
+    X_SUB_SPEED = (1 << 8) / 3  
+    X_SPEED     = 1
+
+    Y_SUB_SPEED = (1 << 8) / 2
+    Y_SPEED     = 2
+
+    ball_sub_x = actor_data0 
+    ball_sub_y = actor_data1
+
+    local_flags = temp+2
+
+    LDA actor_flags,X
+    STA local_flags
+
+    ;;; handle horizontal movement
+
+    ;;; flag bit 0:
+    ;;;     0: move right
+    ;;;     1: move left
+    LSR A           
+    BCS move_x_neg  
+    move_x_pos:
+        ;;; add speed to X position
+        CLC 
+        LDA ball_sub_x,X 
+        ADC #X_SUB_SPEED
+        STA ball_sub_x,X 
+        LDA actor_xs,X 
+        ADC #X_SPEED
+        STA actor_xs,X 
+        STA temp+0      ; write x position parameter for push_sprite routine
+
+        ;;; if X+8 is too high, flip direction bit 
+        CMP #256 - 8 - RIGHT_PAD
+        BCC :+
+            ;;; flag bit 0 known to be 0 here, so INC sets it to 1
+            INC actor_flags,X   
+        :
+            
+        JMP move_x_end  
+    move_x_neg:
+        ;;; subtract speed from X position
+        SEC 
+        LDA ball_sub_x,X 
+        SBC #X_SUB_SPEED
+        STA ball_sub_x,X 
+        LDA actor_xs,X 
+        SBC #X_SPEED
+        STA actor_xs,X    
+        STA temp+0      ; write x position parameter for push_sprite routine
+
+        ;;; if X goes too low, flip direction bit 
+        CMP #LEFT_PAD
+        BCS :+
+            ;;; flag 0 known to be 1 here, so DEC sets it to 0
+            DEC actor_flags,X 
+        :
+    move_x_end:
+
+    ;;; handle vertical movement
+    
+    ;;; flag bit 1:
+    ;;;     0: move down
+    ;;;     1: move up
+    LDA #%00000010
+    BIT local_flags          
+    BNE move_y_neg
+    move_y_pos:
+        ;;; add speed to Y position
+        CLC 
+        LDA ball_sub_y,X 
+        ADC #Y_SUB_SPEED
+        STA ball_sub_y,X 
+        LDA actor_ys,X 
+        ADC #Y_SPEED
+        STA actor_ys,X
+        STA temp+1      ; write y position parameter for push_sprite routine
+
+        ;;; if y+8 is too high, flip direction bit 
+        CMP #240 - 8 - BOTTOM_PAD
+        BCS flip_y_direction
+        BCC move_y_end
+
+    move_y_neg:
+        ;;; subtract speed from Y position
+        SEC 
+        LDA ball_sub_y,X 
+        SBC #Y_SUB_SPEED
+        STA ball_sub_y,X 
+        LDA actor_ys,X 
+        SBC #Y_SPEED
+        STA actor_ys,X
+        STA temp+1      ; write y position parameter for push_sprite routine
+
+        ;;; if y goes too low, flip direction bit 
+        CMP #TOP_PAD
+        BCS move_y_end
+        ;;; fallthrough to flip y direction
+    
+    flip_y_direction:
+        LDA local_flags
+        EOR #%00000010  ; flip vertical direction
+        STA actor_flags,X  
+        
+    move_y_end:    
+     
+    LDA #SPRITE_ATTR_PALETTE{1}
+    STA temp+2                  ; pass attribute parameter to push_sprite routine
+
+    LDA #$01    ; ball sprite
+    JSR push_sprite
+
+    JMP (actor_updater_ret_addr)
 .endproc 
 
 .proc handle_irq
