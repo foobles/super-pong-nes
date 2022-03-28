@@ -9,7 +9,7 @@ MAX_ACTORS = 16
     .exportzp actor_flags, actor_ids, actor_xs, actor_ys, actor_updaters_lo, actor_updaters_hi
     ;;; flag format
     ;;; 76543210
-    ;;; ||++++++- [0-5] for use by actor 
+    ;;; ||++++++- [0-5] for use by actor
     ;;; |+------- [6]   enable collision (other entities can collide with this) [0=off; 1=on]
     ;;; +-------- [7]   actor exists [0=empty slot; 1=filled slot]
     ;;;
@@ -29,7 +29,7 @@ MAX_ACTORS = 16
     actor_count:    .res 1  ; number of existing actors
     actor_next_idx: .res 1  ; lowest index of actor with bit 7 = 0
 
-.bss 
+.bss
     ;;; collision data
     .export actor_collisions_x, actor_collisions_y, actor_collisions_w, actor_collisions_h
     actor_collisions_x: .res MAX_ACTORS
@@ -47,8 +47,8 @@ MAX_ACTORS = 16
 
     .export actor_updater_ret_addr
     actor_updater_ret_addr:
-        .align 2 
-        .res 2 
+        .align 2
+        .res 2
 
 .code
 
@@ -105,7 +105,7 @@ MAX_ACTORS = 16
         ;;; fetch update routine index
         LDA actor_updaters_lo,X
         STA call_addr+0
-        LDA actor_updaters_hi,X 
+        LDA actor_updaters_hi,X
         STA call_addr+1
         JMP (call_addr)         ; dive into the update routine
     updater_return_label:
@@ -158,7 +158,7 @@ MAX_ACTORS = 16
 ;;; must preserve:
 ;;;     X, actor_updater_ret_addr
 ;;;
-;;; return by JMP (actor_updater_ret_addr) or equivalent 
+;;; return by JMP (actor_updater_ret_addr) or equivalent
 
 
 ;;; parameters:
@@ -168,7 +168,7 @@ MAX_ACTORS = 16
 ;;;     temp+3: hitbox bottom y
 ;;; output:
 ;;;     C:  did collide [0=false; 1=true]
-;;;     Y:  index of collided actor (only if C is set) 
+;;;     Y:  index of collided actor (only if C is set)
 ;;; overwrites:
 ;;;     A, Y
 ;;; notes:
@@ -181,32 +181,32 @@ MAX_ACTORS = 16
     right_x     = temp+2
     bottom_y    = temp+3
 
-    LDY #MAX_ACTORS 
+    LDY #MAX_ACTORS
 
     continue_clc:
-    CLC 
+    CLC
     continue:
     DEY
     BMI ret             ; loop until X = -1 (please dont have 128+ MAX_ACTORS)
 
-        LDA actor_flags,Y 
-        AND #%01000000   
+        LDA actor_flags,Y
+        AND #%01000000
         BEQ continue    ; skip if flag bit 6 (collision enable) is not set
 
         LDA actor_xs,Y
-        ADC actor_collisions_x,Y 
+        ADC actor_collisions_x,Y
         CMP right_x             ; check hitbox right side is not left of the actor
         BCS continue_clc
-        ADC actor_collisions_w,Y 
+        ADC actor_collisions_w,Y
         CMP left_x              ; check hitbox left side is not right of the actor
-        BCC continue 
+        BCC continue
 
-        CLC 
-        LDA actor_ys
-        ADC actor_collisions_y,Y 
+        CLC
+        LDA actor_ys,Y
+        ADC actor_collisions_y,Y
         CMP bottom_y            ; check if hitbox bottom side is not above actor
         BCS continue_clc
-        ADC actor_collisions_h,Y 
+        ADC actor_collisions_h,Y
         CMP top_y               ; check if hitbox top side is not below actor
         BCC continue
 
@@ -216,5 +216,5 @@ MAX_ACTORS = 16
     ;;; if we get here by a jump, then C must have been cleared by the continue block or comparison
     ;;; and we did not collide with any actor
     ret:
-    RTS 
-.endproc 
+    RTS
+.endproc
