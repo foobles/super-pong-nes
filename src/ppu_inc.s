@@ -5,11 +5,11 @@ oamaddr     = $2003
 oamdata     = $2004
 ppuscroll   = $2005
 ppuaddr     = $2006
-ppudata     = $2007 
+ppudata     = $2007
 oamdma      = $4014
-  
+
 ppu_palette_table   =   $3F00
-   
+
 
 .define PPUCTRL_NAMETABLE(n)        ((n) << 0)
         PPUCTRL_VRAM_INC_1      =   (0 << 2)

@@ -19,15 +19,15 @@
     read_buttons:
         ;;; read button into joy0_state
         LDA joy0        ; load button state
-        LSR A           ; shift button state into C 
+        LSR A           ; shift button state into C
         ROL joy0_state  ; rotate C into joy0 state
 
         ;;; read button into joy1_state
-        LDA joy1        
-        LSR A          
+        LDA joy1
+        LSR A
         ROL joy1_state
 
-        ;;; joy1_state was initialized with %00000001 
+        ;;; joy1_state was initialized with %00000001
         ;;; when C is 1 after ROL, that means 8 iterations have passed
         ;;; there are 8 buttons, so this means the loop should end
         BCC read_buttons

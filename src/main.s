@@ -13,10 +13,10 @@
     temp:           .res 8
     frame:          .res 1
 
-.bss 
+.bss
     game_state_updater:
         .align 2
-        .res 2 
+        .res 2
 
 
 .code
@@ -27,7 +27,7 @@
         BIT nmi_handler_done
         BPL :-                  ; NMI handler sets bit 7 when done processing
     ASL nmi_handler_done        ; shift off bit, set to 0
-.endmacro 
+.endmacro
 
 .macro MAIN_LOOP
     .local main_loop
@@ -41,12 +41,12 @@
         STA oam_stack_idx
 
         JMP (game_state_updater)
-        ::game_state_updater_ret_addr: 
+        ::game_state_updater_ret_addr:
 
         .import hide_unused_oam
         JSR hide_unused_oam
 
-        WAIT_NMI 
+        WAIT_NMI
         INC frame
         JMP main_loop
 .endmacro
@@ -86,23 +86,23 @@
     frame1: BIT ppustatus
             BPL frame1
 
-    ;;; buffer enable nmi, initialize starting game state 
+    ;;; buffer enable nmi, initialize starting game state
     .importzp local_ppuctrl, local_ppumask
     LDA #PPUCTRL_ENABLE_NMI \
             | PPUCTRL_VRAM_INC_1 \
             | PPUCTRL_TILE_TABLE{0} \
             | PPUCTRL_SPRITE_TABLE{1} \
-            | PPUCTRL_NAMETABLE{0} 
+            | PPUCTRL_NAMETABLE{0}
     STA local_ppuctrl
 
-    ;;; buffer enable rendering 
+    ;;; buffer enable rendering
     LDA #PPUMASK_SHOW_ALL
     STA local_ppumask
 
     ;;; set initial gamestate
     JSR transition_game_state_basic
 
-    ;;; process buffered PPU updates 
+    ;;; process buffered PPU updates
     LDA local_ppumask
     STA ppumask
     LDA local_ppuctrl
@@ -135,11 +135,11 @@
     LDA #$00
     STA ppuaddr
     JSR process_compressed
-    
+
     ;;; create entities
-    
+
     .import find_next_empty_actor
-    
+
     ;;; create ball
     LDX actor_next_idx
     SET_ACTOR_FLAGS %10000000
@@ -171,22 +171,22 @@
     JSR find_next_empty_actor
 
 
-    ;;; set state update routine 
+    ;;; set state update routine
     LDA #<game_state_basic
     STA game_state_updater+0
     LDA #>game_state_basic
     STA game_state_updater+1
-    RTS 
-.endproc 
+    RTS
+.endproc
 
 .proc game_state_basic
     .import process_actors
     JSR process_actors
     JMP game_state_updater_ret_addr
-.endproc 
+.endproc
 
 
-.import push_sprite 
+.import push_sprite
 
 ;;; ball update procedure to put in actor array
 ;;;
@@ -194,19 +194,19 @@
 ;;;     X subpixel position
 ;;;     Y subpixel position
 ;;;     vertical speed
-.proc update_ball 
+.proc update_ball
     LEFT_PAD    = 8
     RIGHT_PAD   = 8
     TOP_PAD     = 100
     BOTTOM_PAD  = 32
 
-    X_SUB_SPEED = (1 << 8) / 3  
+    X_SUB_SPEED = (1 << 8) / 3
     X_SPEED     = 1
 
     Y_SUB_SPEED = (1 << 8) / 2
     Y_SPEED     = 2
 
-    ball_sub_x = actor_data0 
+    ball_sub_x = actor_data0
     ball_sub_y = actor_data1
 
     local_flags = temp+2
@@ -219,93 +219,93 @@
     ;;; flag bit 0:
     ;;;     0: move right
     ;;;     1: move left
-    LSR A           
-    BCS move_x_neg  
+    LSR A
+    BCS move_x_neg
     move_x_pos:
         ;;; add speed to X position
-        CLC 
-        LDA ball_sub_x,X 
+        CLC
+        LDA ball_sub_x,X
         ADC #X_SUB_SPEED
-        STA ball_sub_x,X 
-        LDA actor_xs,X 
+        STA ball_sub_x,X
+        LDA actor_xs,X
         ADC #X_SPEED
-        STA actor_xs,X 
+        STA actor_xs,X
         STA temp+0      ; write x position parameter for push_sprite routine
 
-        ;;; if X+8 is too high, flip direction bit 
+        ;;; if X+8 is too high, flip direction bit
         CMP #256 - 8 - RIGHT_PAD
         BCC :+
             ;;; flag bit 0 known to be 0 here, so INC sets it to 1
-            INC actor_flags,X   
+            INC actor_flags,X
         :
-            
-        JMP move_x_end  
+
+        JMP move_x_end
     move_x_neg:
         ;;; subtract speed from X position
-        SEC 
-        LDA ball_sub_x,X 
+        SEC
+        LDA ball_sub_x,X
         SBC #X_SUB_SPEED
-        STA ball_sub_x,X 
-        LDA actor_xs,X 
+        STA ball_sub_x,X
+        LDA actor_xs,X
         SBC #X_SPEED
-        STA actor_xs,X    
+        STA actor_xs,X
         STA temp+0      ; write x position parameter for push_sprite routine
 
-        ;;; if X goes too low, flip direction bit 
+        ;;; if X goes too low, flip direction bit
         CMP #LEFT_PAD
         BCS :+
             ;;; flag 0 known to be 1 here, so DEC sets it to 0
-            DEC actor_flags,X 
+            DEC actor_flags,X
         :
     move_x_end:
 
     ;;; handle vertical movement
-    
+
     ;;; flag bit 1:
     ;;;     0: move down
     ;;;     1: move up
     LDA #%00000010
-    BIT local_flags          
+    BIT local_flags
     BNE move_y_neg
     move_y_pos:
         ;;; add speed to Y position
-        CLC 
-        LDA ball_sub_y,X 
+        CLC
+        LDA ball_sub_y,X
         ADC #Y_SUB_SPEED
-        STA ball_sub_y,X 
-        LDA actor_ys,X 
+        STA ball_sub_y,X
+        LDA actor_ys,X
         ADC #Y_SPEED
         STA actor_ys,X
         STA temp+1      ; write y position parameter for push_sprite routine
 
-        ;;; if y+8 is too high, flip direction bit 
+        ;;; if y+8 is too high, flip direction bit
         CMP #240 - 8 - BOTTOM_PAD
         BCS flip_y_direction
         BCC move_y_end
 
     move_y_neg:
         ;;; subtract speed from Y position
-        SEC 
-        LDA ball_sub_y,X 
+        SEC
+        LDA ball_sub_y,X
         SBC #Y_SUB_SPEED
-        STA ball_sub_y,X 
-        LDA actor_ys,X 
+        STA ball_sub_y,X
+        LDA actor_ys,X
         SBC #Y_SPEED
         STA actor_ys,X
         STA temp+1      ; write y position parameter for push_sprite routine
 
-        ;;; if y goes too low, flip direction bit 
+        ;;; if y goes too low, flip direction bit
         CMP #TOP_PAD
         BCS move_y_end
         ;;; fallthrough to flip y direction
-    
+
     flip_y_direction:
         LDA local_flags
         EOR #%00000010  ; flip vertical direction
-        STA actor_flags,X  
-        
-    move_y_end:    
-     
+        STA actor_flags,X
+
+    move_y_end:
+
     LDA #SPRITE_ATTR_PALETTE{1}
     STA temp+2                  ; pass attribute parameter to push_sprite routine
 
@@ -313,7 +313,7 @@
     JSR push_sprite
 
     JMP (actor_updater_ret_addr)
-.endproc 
+.endproc
 
 ;;; paddle update procedure to put in actor array
 ;;; data format:

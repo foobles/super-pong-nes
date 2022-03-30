@@ -1,14 +1,14 @@
 .charmap 32, $00            ; [space]
 
 ;;; letters
-.repeat 26, I 
-    .charmap 65+I, $01+I 
-    .charmap 97+I, $01+I 
-.endrepeat 
+.repeat 26, I
+    .charmap 65+I, $01+I
+    .charmap 97+I, $01+I
+.endrepeat
 
 ;;; digits
 .charmap 48, $24            ; '0'
-.repeat 9,I 
+.repeat 9,I
     .charmap 49+I, $1B+I    ; '1'-'9'
 .endrepeat
 

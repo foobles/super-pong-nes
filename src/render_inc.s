@@ -8,7 +8,7 @@ OAM_RESERVED_END = 4 * OAM_RESERVED
 ;;; paramters:  [data to write...]
 RENDER_IMMEDIATE    = %00000000
 
-;;; paramers:   [data addr low] [data addr hi] 
+;;; paramers:   [data addr low] [data addr hi]
 RENDER_INDIRECT     = %10000000
 
 ;;; parameters: [byte to be repeated]

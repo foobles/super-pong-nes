@@ -2,7 +2,7 @@
 
 .import __HEADER_SIZE__
 
-prg_page_count  = 2     ; 16 KiB per page 
+prg_page_count  = 2     ; 16 KiB per page
 chr_page_count  = 1     ; 8 KiB per page; 0 = CHR RAM
 mirroring       = 1     ; 0 = horizontal; 1 = vertical
 mapper_no       = 0     ; NROM
