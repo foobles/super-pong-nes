@@ -13,6 +13,9 @@
     temp:           .res 8
     frame:          .res 1
 
+    left_paddle_idx:    .res 1
+    right_paddle_idx:   .res 1
+
 .bss
     game_state_updater:
         .align 2
@@ -158,6 +161,7 @@
     SET_ACTOR_UPDATER update_paddle
     FILL_ACTOR_DATA $00
     SET_ACTOR_HITBOX {0}, {0}, {8}, {8*5}
+    STX left_paddle_idx
     JSR find_next_empty_actor
 
     ;;; create paddle
@@ -168,6 +172,7 @@
     SET_ACTOR_UPDATER update_paddle
     FILL_ACTOR_DATA $00
     SET_ACTOR_HITBOX {0}, {0}, {8}, {8*5}
+    STX right_paddle_idx
     JSR find_next_empty_actor
 
 
@@ -195,6 +200,8 @@
 ;;;     Y subpixel position
 ;;;     vertical speed
 .proc update_ball
+    .import check_actor_collisions
+
     LEFT_PAD    = 8
     RIGHT_PAD   = 8
     TOP_PAD     = 100
@@ -206,12 +213,32 @@
     Y_SUB_SPEED = (1 << 8) / 2
     Y_SPEED     = 2
 
-    ball_sub_x = actor_data0
-    ball_sub_y = actor_data1
+    ball_sub_x  = actor_data0
+    ball_sub_y  = actor_data1
 
     local_flags = temp+2
 
+    ;;; check collisions
+    CLC
+    LDA actor_xs,X
+    STA temp+0      ; left side of hitbox
+    ADC #8
+    STA temp+2      ; right side of hitbox
+    LDA actor_ys,X
+    STA temp+1      ; top side of hitbox
+    ADC #8
+    STA temp+3      ; bottom side of hitbox
+    JSR check_actor_collisions
+
     LDA actor_flags,X
+    BCC end_flip        ; do not flip direction if no collision
+        AND #< ~(1<<0)
+        CPY left_paddle_idx
+        BEQ :+
+            ORA #(1<<0)
+        :
+        STA actor_flags,X
+    end_flip:
     STA local_flags
 
     ;;; handle horizontal movement
@@ -219,7 +246,11 @@
     ;;; flag bit 0:
     ;;;     0: move right
     ;;;     1: move left
-    LSR A
+    ;;;
+    ;;; C should be set by previous
+    ;;; section
+
+    LSR A           ; put X direction into C
     BCS move_x_neg
     move_x_pos:
         ;;; add speed to X position
