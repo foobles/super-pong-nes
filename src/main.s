@@ -150,6 +150,27 @@
 
     JSR find_next_empty_actor
 
+    ;;; create paddle
+    LDX actor_next_idx
+    SET_ACTOR_FLAGS %11000000
+    SET_ACTOR_ID 1
+    SET_ACTOR_POS {50}, {240/2}
+    SET_ACTOR_UPDATER update_paddle
+    FILL_ACTOR_DATA $00
+    SET_ACTOR_HITBOX {0}, {0}, {8}, {8*5}
+    JSR find_next_empty_actor
+
+    ;;; create paddle
+    LDX actor_next_idx
+    SET_ACTOR_FLAGS %11000001
+    SET_ACTOR_ID 1
+    SET_ACTOR_POS {256-50-8}, {240/2}
+    SET_ACTOR_UPDATER update_paddle
+    FILL_ACTOR_DATA $00
+    SET_ACTOR_HITBOX {0}, {0}, {8}, {8*5}
+    JSR find_next_empty_actor
+
+
     ;;; set state update routine 
     LDA #<game_state_basic
     STA game_state_updater+0
@@ -293,6 +314,98 @@
 
     JMP (actor_updater_ret_addr)
 .endproc 
+
+;;; paddle update procedure to put in actor array
+;;; data format:
+;;;     flags: 76543210
+;;;            |||||||+- player [0=player 1; 1=player 2]
+;;;            XXXXXXX
+;;;
+;;;     data0:  X subpixel position
+;;;     data1:  Y subpixel position
+.proc update_paddle
+    .importzp joy0_state, joy1_state
+
+    Y_SUB_SPEED = $100 * 2/3
+    Y_SPEED     = 1
+
+    button_state    = temp+0
+    paddle_sub_y    = actor_data1
+
+    LDA actor_flags,X
+    AND #(1 << 0)             ; mask player flag
+    TAY
+    LDA a:joy0_state,Y  ; load joy0_state or joy1_state
+    STA button_state
+
+    test_move_down:
+    AND #JOY_BUTTON_DOWN
+    BEQ test_move_up
+        ;;; move down
+        CLC
+        LDA paddle_sub_y,X
+        ADC #Y_SUB_SPEED
+        STA paddle_sub_y,X
+        LDA actor_ys,X
+        ADC #Y_SPEED
+        STA actor_ys,X
+        JMP test_move_end
+
+    test_move_up:
+    LDA button_state
+    AND #JOY_BUTTON_UP
+    BEQ test_move_none
+        ;;; move down
+        SEC
+        LDA paddle_sub_y,X
+        SBC #Y_SUB_SPEED
+        STA paddle_sub_y,X
+        LDA actor_ys,X
+        SBC #Y_SPEED
+        STA actor_ys,X
+
+    test_move_none:
+        LDA actor_ys,X
+    test_move_end:
+
+    ;;; begin drawing sprite
+
+    ;;; draw top of paddle
+    STA temp+1      ; pass Y position parameter
+    LDA actor_xs,X
+    STA temp+0      ; pass X position parameter
+    LDA #SPRITE_ATTR_PALETTE{0}
+    STA temp+2      ; pass attribute parameter
+    LDA #2          ; top of paddle sprite
+    JSR push_sprite
+
+    STX temp+3      ; store actor index
+
+    ;;; loop drawing rest of sprite
+    LDX #4          ; set X to loop index variable
+    CLC
+    loop:
+        LDA temp+1  ; load Y position
+        ADC #8      ; move down 8
+        STA temp+1
+
+        DEX         ; if we are on the last iteration exit the loop and skip rendering middle segment
+        BEQ loop_end
+
+        LDA #3      ; middle paddle sprite
+        JSR push_sprite
+        JMP loop
+    loop_end:
+
+    LDA #SPRITE_ATTR_PALETTE{0} | SPRITE_ATTR_FLIP_V
+    STA temp+2                                      ; draw paddle end upside down
+    LDA #2                                          ; draw paddle end
+    JSR push_sprite
+
+    LDX temp+3      ; restore actor index
+
+    JMP (actor_updater_ret_addr)
+.endproc
 
 .proc handle_irq
     RTI
