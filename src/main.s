@@ -199,6 +199,9 @@
 ;;;     X subpixel position
 ;;;     Y subpixel position
 ;;;     vertical speed
+;;;         76543210
+;;;         ||||||++- coarse pixel speed
+;;;         ++++++--- subpixel speed
 .proc update_ball
     .import check_actor_collisions
 
@@ -213,8 +216,9 @@
     Y_SUB_SPEED = (1 << 8) / 2
     Y_SPEED     = 2
 
-    ball_sub_x  = actor_data0
-    ball_sub_y  = actor_data1
+    ball_sub_x      = actor_data0
+    ball_sub_y      = actor_data1
+    ball_speed_y    = actor_data2
 
     local_flags = temp+2
 
@@ -230,13 +234,69 @@
     STA temp+3      ; bottom side of hitbox
     JSR check_actor_collisions
 
+    subpixel_diff   = temp+0
+    coarse_diff     = temp+1
+
     LDA actor_flags,X
     BCC end_flip        ; do not flip direction if no collision
-        AND #< ~(1<<0)
-        CPY left_paddle_idx
-        BEQ :+
+        ;;; bounce off paddle
+
+        ;;; set X direction to right, Y direction to down
+        AND #< ~((1<<0) | (1<<1))
+        ;;; but if we collided with the right paddle, set X direction to left
+        CPY right_paddle_idx
+        BNE :+
             ORA #(1<<0)
         :
+        STA local_flags
+
+        ;;; perform 16 bit subtraction of vertical positions
+        SEC
+        LDA ball_sub_y,X
+        SBC actor_data1,Y   ; subpixel position of paddle
+        STA subpixel_diff
+        LDA actor_ys,X
+        SBC a:actor_ys,Y
+        SEC
+        SBC #(8*5/2 - 4)    ; then adjust for center of paddle and center of ball
+        STA coarse_diff
+        ;;; take absolute value of difference
+        BPL :+
+            EOR #$FF            ; negate high byte
+            STA coarse_diff
+            LDA subpixel_diff
+            EOR #$FF            ; negate low byte
+            CLC
+            ADC #1              ; add one to low byte
+            STA subpixel_diff
+            LDA local_flags
+            ORA #(1<<1)         ; since ball on top half of paddle, move up instead
+            STA local_flags
+            BCC :+              ; carry into high byte from addition earlier
+            INC coarse_diff
+        :
+
+        ;;; since coarse_diff will be at maximum 5 bits large,
+        ;;; shift it right 3 bits and rotate into subpixel_diff (divide by 8)
+        ;;; then set the low 2 bits to the remaining 2 bits in coarse_diff
+        ;;;
+        ;;; effectively, this calculates a 6-bit subpixel velocity and a 2-bit
+        ;;; coarse pixel velocity
+        LDA subpixel_diff
+        LSR coarse_diff
+        ROR A
+        LSR coarse_diff
+        ROR A
+        LSR coarse_diff
+        ROR A
+        EOR coarse_diff
+        AND #%11111100
+        EOR coarse_diff
+
+        STA ball_speed_y,X
+
+        ;;; store updated flags into actor
+        LDA local_flags
         STA actor_flags,X
     end_flip:
     STA local_flags
@@ -292,6 +352,18 @@
 
     ;;; handle vertical movement
 
+    coarse_y_speed      = temp+3
+    subpixel_y_speed    = temp+4
+
+    ;;; extract coarse and subpixel speeds from speed field
+    ;;; (format described in function description)
+    LDA ball_speed_y,X
+    AND #%00000011
+    STA coarse_y_speed
+    LDA ball_speed_y,X
+    AND #%11111100
+    STA subpixel_y_speed
+
     ;;; flag bit 1:
     ;;;     0: move down
     ;;;     1: move up
@@ -302,10 +374,10 @@
         ;;; add speed to Y position
         CLC
         LDA ball_sub_y,X
-        ADC #Y_SUB_SPEED
+        ADC subpixel_y_speed
         STA ball_sub_y,X
         LDA actor_ys,X
-        ADC #Y_SPEED
+        ADC coarse_y_speed
         STA actor_ys,X
         STA temp+1      ; write y position parameter for push_sprite routine
 
@@ -318,10 +390,10 @@
         ;;; subtract speed from Y position
         SEC
         LDA ball_sub_y,X
-        SBC #Y_SUB_SPEED
+        SBC subpixel_y_speed
         STA ball_sub_y,X
         LDA actor_ys,X
-        SBC #Y_SPEED
+        SBC coarse_y_speed
         STA actor_ys,X
         STA temp+1      ; write y position parameter for push_sprite routine
 
