@@ -193,15 +193,20 @@
 
 .import push_sprite
 
-;;; ball update procedure to put in actor array
+;;; ball actor update procedure
 ;;;
 ;;; data format:
-;;;     X subpixel position
-;;;     Y subpixel position
-;;;     vertical speed
+;;;     flags:  76543210
+;;;             |||||||+- 0: horizontal direction [0=right; 1=left]
+;;;             ||||||+-- 1: vertical direction [0=down; 1=up]
+;;;             XXXXXX
+;;;
+;;;     data0:  X subpixel position
+;;;     data1:  Y subpixel position
+;;;     data2:  vertical speed
 ;;;         76543210
-;;;         ||||||++- coarse pixel speed
-;;;         ++++++--- subpixel speed
+;;;         ||||||++- [0-1]:    coarse pixel speed
+;;;         ++++++--- [2-6]:    subpixel speed
 .proc update_ball
     .import check_actor_collisions
 
@@ -418,11 +423,11 @@
     JMP (actor_updater_ret_addr)
 .endproc
 
-;;; paddle update procedure to put in actor array
+;;; paddle actor update procedure
 ;;; data format:
-;;;     flags: 76543210
-;;;            |||||||+- player [0=player 1; 1=player 2]
-;;;            XXXXXXX
+;;;     flags:  76543210
+;;;             |||||||+- 0: player [0=player 1; 1=player 2]
+;;;             XXXXXXX
 ;;;
 ;;;     data0:  X subpixel position
 ;;;     data1:  Y subpixel position
@@ -509,6 +514,7 @@
 
     JMP (actor_updater_ret_addr)
 .endproc
+
 
 .proc handle_irq
     RTI
