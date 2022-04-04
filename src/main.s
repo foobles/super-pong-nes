@@ -311,11 +311,8 @@
     ;;; flag bit 0:
     ;;;     0: move right
     ;;;     1: move left
-    ;;;
-    ;;; C should be set by previous
-    ;;; section
 
-    LSR A           ; put X direction into C
+    LSR A           ; put X direction into C, assume A contains flags
     BCS move_x_neg
     move_x_pos:
         ;;; add speed to X position
