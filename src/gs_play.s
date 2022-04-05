@@ -112,12 +112,14 @@
     X_SUB_SPEED = (1 << 8) / 3
     X_SPEED     = 1
 
-    Y_SUB_SPEED = (1 << 8) / 2
-    Y_SPEED     = 2
-
     ball_sub_x      = actor_data0
     ball_sub_y      = actor_data1
     ball_speed_y    = actor_data2
+
+    X_DIR_BIT           = 1 << 0
+    Y_DIR_BIT           = 1 << 1
+    COARSE_SPEED_MASK   = %00000011
+    SUBPIXEL_SPEED_MASK = %11111100
 
     local_flags = temp+2
 
@@ -141,11 +143,11 @@
         ;;; bounce off paddle
 
         ;;; set X direction to right, Y direction to down
-        AND #< ~((1<<0) | (1<<1))
+        AND #< ~(X_DIR_BIT | Y_DIR_BIT)
         ;;; but if we collided with the right paddle, set X direction to left
         CPY #RIGHT_PADDLE_IDX
         BNE :+
-            ORA #(1<<0)
+            ORA #X_DIR_BIT
         :
         STA local_flags
 
@@ -169,7 +171,7 @@
             ADC #1              ; add one to low byte
             STA subpixel_diff
             LDA local_flags
-            ORA #(1<<1)         ; since ball on top half of paddle, move up instead
+            ORA #Y_DIR_BIT      ; since ball on top half of paddle, move up instead
             STA local_flags
             BCC :+              ; carry into high byte from addition earlier
             INC coarse_diff
@@ -189,7 +191,7 @@
         LSR coarse_diff
         ROR A
         EOR coarse_diff
-        AND #%11111100
+        AND #SUBPIXEL_SPEED_MASK
         EOR coarse_diff
 
         STA ball_speed_y,X
@@ -202,10 +204,9 @@
 
     ;;; handle horizontal movement
 
-    ;;; flag bit 0:
+    ;;; X direction flag:
     ;;;     0: move right
     ;;;     1: move left
-
     LSR A           ; put X direction into C, assume A contains flags
     BCS move_x_neg
     move_x_pos:
@@ -254,16 +255,16 @@
     ;;; extract coarse and subpixel speeds from speed field
     ;;; (format described in function description)
     LDA ball_speed_y,X
-    AND #%00000011
+    AND #COARSE_SPEED_MASK
     STA coarse_y_speed
     LDA ball_speed_y,X
-    AND #%11111100
+    AND #SUBPIXEL_SPEED_MASK
     STA subpixel_y_speed
 
-    ;;; flag bit 1:
+    ;;; Y direction flag:
     ;;;     0: move down
     ;;;     1: move up
-    LDA #%00000010
+    LDA #Y_DIR_BIT
     BIT local_flags
     BNE move_y_neg
     move_y_pos:
@@ -300,7 +301,7 @@
 
     flip_y_direction:
         LDA local_flags
-        EOR #%00000010  ; flip vertical direction
+        EOR #Y_DIR_BIT     ; flip vertical direction
         STA actor_flags,X
 
     move_y_end:
