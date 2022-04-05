@@ -257,8 +257,13 @@
     LDA ball_speed_y,X
     AND #COARSE_SPEED_MASK
     STA coarse_y_speed
-    LDA ball_speed_y,X
-    AND #SUBPIXEL_SPEED_MASK
+    ;;; subpixel bits are zero, coarse pixel bits are equal to corresponding
+    ;;; bits of the Y speed
+    ;;;
+    ;;; therefore, EOR will set the subpixel bits to equal the correct
+    ;;; value (0 ^ X = X), and cancel out the coarse pixel bits
+    ;;; to zero (Y ^ Y = 0)
+    EOR ball_speed_y,X
     STA subpixel_y_speed
 
     ;;; Y direction flag:
