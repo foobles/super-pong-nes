@@ -5,10 +5,11 @@
 .globalzp   temp, game_state_data
 .global     game_state_updater_ret_addr, game_state_updater
 
-
-left_paddle_idx     = game_state_data+0
-right_paddle_idx    = game_state_data+1
-
+.enum
+    BALL_IDX            = 0
+    LEFT_PADDLE_IDX
+    RIGHT_PADDLE_IDX
+.endenum
 
 .code
 
@@ -39,41 +40,38 @@ right_paddle_idx    = game_state_data+1
     JSR process_compressed
 
     ;;; create entities
-
-    .import find_next_empty_actor
+    ;;;
+    ;;; ball and paddles occupy fixed locations in the actor array
+    ;;; given by the enum at the top of the file
 
     ;;; create ball
-    LDX actor_next_idx
+    LDX #BALL_IDX
     SET_ACTOR_FLAGS %10000000
     SET_ACTOR_ID 0
     SET_ACTOR_POS {256/2}, {240/2}
     SET_ACTOR_UPDATER update_ball
     FILL_ACTOR_DATA $00
 
-    JSR find_next_empty_actor
-
-    ;;; create paddle
-    LDX actor_next_idx
+    ;;; create left paddle
+    INX
     SET_ACTOR_FLAGS %11000000
     SET_ACTOR_ID 1
     SET_ACTOR_POS {50}, {240/2}
     SET_ACTOR_UPDATER update_paddle
     FILL_ACTOR_DATA $00
     SET_ACTOR_HITBOX {0}, {0}, {8}, {8*5}
-    STX left_paddle_idx
-    JSR find_next_empty_actor
 
-    ;;; create paddle
-    LDX actor_next_idx
+    ;;; create right paddle
+    INX
     SET_ACTOR_FLAGS %11000001
     SET_ACTOR_ID 1
     SET_ACTOR_POS {256-50-8}, {240/2}
     SET_ACTOR_UPDATER update_paddle
     FILL_ACTOR_DATA $00
     SET_ACTOR_HITBOX {0}, {0}, {8}, {8*5}
-    STX right_paddle_idx
-    JSR find_next_empty_actor
 
+    INX
+    STX actor_next_idx
 
     ;;; set state update routine
     LDA #<game_state_play
@@ -145,7 +143,7 @@ right_paddle_idx    = game_state_data+1
         ;;; set X direction to right, Y direction to down
         AND #< ~((1<<0) | (1<<1))
         ;;; but if we collided with the right paddle, set X direction to left
-        CPY right_paddle_idx
+        CPY #RIGHT_PADDLE_IDX
         BNE :+
             ORA #(1<<0)
         :
