@@ -100,7 +100,7 @@
 ;;;     data2:  vertical speed
 ;;;         76543210
 ;;;         ||||||++- [0-1]:    coarse pixel speed
-;;;         ++++++--- [2-6]:    subpixel speed
+;;;         ++++++--- [2-7]:    subpixel speed
 .proc update_ball
     .import check_actor_collisions
 
