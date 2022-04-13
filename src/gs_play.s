@@ -16,7 +16,7 @@ GS_PLAY_NAMETABLE_HI = $20
 .endenum
 
 BALL_START_X = (256 - 8) / 2
-BALL_START_Y = (240 - 8) / 2
+BALL_START_Y = (240 / 2) + 16
 
 player_points = game_state_data+0   ; 2 byte BCD array
 
