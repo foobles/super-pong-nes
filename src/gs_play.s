@@ -1,15 +1,25 @@
 .include "actors_inc.s"
 .include "ppu_inc.s"
 .include "input_inc.s"
+.include "render_inc.s"
 
 .globalzp   temp, game_state_data
 .global     game_state_updater_ret_addr, game_state_updater
+
+;;; nametable of play area
+GS_PLAY_NAMETABLE_HI = $20
 
 .enum
     BALL_IDX            = 0
     LEFT_PADDLE_IDX
     RIGHT_PADDLE_IDX
 .endenum
+
+BALL_START_X = (256 - 8) / 2
+BALL_START_Y = (240 - 8) / 2
+
+player_points = game_state_data+0   ; 2 byte BCD array
+
 
 .code
 
@@ -33,7 +43,7 @@
     STA temp+0
     LDA #>title_screen_render_buf
     STA temp+1
-    LDA #$20
+    LDA #GS_PLAY_NAMETABLE_HI
     STA ppuaddr
     LDA #$00
     STA ppuaddr
@@ -46,11 +56,7 @@
 
     ;;; create ball
     LDX #BALL_IDX
-    SET_ACTOR_FLAGS %10000000
-    SET_ACTOR_ID 0
-    SET_ACTOR_POS {256/2}, {240/2}
-    SET_ACTOR_UPDATER update_ball
-    FILL_ACTOR_DATA $00
+    JSR init_ball
 
     ;;; create left paddle
     INX
@@ -220,14 +226,14 @@
         STA actor_xs,X
         STA temp+0      ; write x position parameter for push_sprite routine
 
-        ;;; if X+8 is too high, flip direction bit
+        ;;; if X+8 is too high, then ball is hitting the right edge
+        ;;; player 1 wins the round
         CMP #256 - 8 - RIGHT_PAD
-        BCC :+
-            ;;; flag bit 0 known to be 0 here, so INC sets it to 1
-            INC actor_flags,X
-        :
+        BCC move_x_end
 
-        JMP move_x_end
+        LDX #0              ; index of player 1
+        JMP on_player_score ; tail call
+
     move_x_neg:
         ;;; subtract speed from X position
         SEC
@@ -239,12 +245,14 @@
         STA actor_xs,X
         STA temp+0      ; write x position parameter for push_sprite routine
 
-        ;;; if X goes too low, flip direction bit
+        ;;; if X goes too low, then ball is hitting left edge
+        ;;; player 2 wins the round
         CMP #LEFT_PAD
-        BCS :+
-            ;;; flag 0 known to be 1 here, so DEC sets it to 0
-            DEC actor_flags,X
-        :
+        BCS move_x_end
+
+        LDX #1              ; index of player 2
+        JMP on_player_score ; tail call
+
     move_x_end:
 
     ;;; handle vertical movement
@@ -413,4 +421,102 @@
     LDX temp+3      ; restore actor index
 
     JMP (actor_updater_ret_addr)
+.endproc
+
+;;; BCD increment of point value for player who scored.
+;;; Update screen and reset ball.
+;;; Jump to this routine only as a tail call from update_ball.
+;;;
+;;; parameters:
+;;;     X: player index [0 = player 1; 1 = player 2]
+;;;
+;;; overwrites:
+;;;     temp+0
+.proc on_player_score
+    high_digit = temp+0
+
+    LDA player_points,X
+    AND #$F0            ; take high digit
+    STA high_digit
+    EOR player_points,X ; take low digit
+    CLC
+    ADC #1
+    CMP #$0A
+    BNE :+              ; carry into high digit if equal to 10
+        LDA #$10 - 1    ; -1 because C is set iff this branch is taken
+    :
+    ADC high_digit      ; combine high and low digits (and maybe carry)
+    STA player_points,X ; save computed value
+
+    points = temp+0
+    STA points
+
+    ;;; update tiles to show new point value
+    .import render_queue, render_queue_len
+    LDY render_queue_len
+
+    DIGIT_TILE_0 = $1B
+
+    ;;; pass address of score text on the ppu
+    LDA #GS_PLAY_NAMETABLE_HI
+    STA render_queue+0,Y
+
+    ;;; calculate offset based on player who scored
+    ;;; player 1 = left, player 2 = right
+    TXA
+    ASL A
+    ASL A
+    ASL A
+    ASL A
+    ADC #32+6  ; assume C is 0 from shifts/rotates above
+    STA render_queue+1,Y
+
+    ;;; pass length of score text (always 2 digits)
+    LDA #2
+    STA render_queue+2,Y
+    ;;; opcode
+    LDA #RENDER_IMMEDIATE
+    STA render_queue+3,Y
+    ;;; high digit
+    LDA points
+    LSR A
+    LSR A
+    LSR A
+    LSR A
+    CLC
+    ADC #DIGIT_TILE_0
+    STA render_queue+4,Y
+    ;;; low digit
+    LDA points
+    AND #$0F
+    ADC #DIGIT_TILE_0       ; assume previous add did not carry
+    STA render_queue+5,Y
+
+    ;;; increment length of render queue
+    TYA
+    CLC
+    ADC #6
+    STA render_queue_len
+
+    ;;; assumption: this routine is only called from actor at index #BALL_INDEX
+    LDX #BALL_IDX
+    JSR init_ball   ; reset ball to default position
+
+    JMP (actor_updater_ret_addr)
+.endproc
+
+;;; basic ball initialization values
+;;;
+;;; parameters:
+;;;     X: index of ball in actor array
+;;;
+;;; overwrites:
+;;;     A
+.proc init_ball
+    SET_ACTOR_FLAGS %10000000
+    SET_ACTOR_ID 0
+    SET_ACTOR_POS {::BALL_START_X}, {::BALL_START_Y}
+    SET_ACTOR_UPDATER update_ball
+    FILL_ACTOR_DATA $00
+    RTS
 .endproc
