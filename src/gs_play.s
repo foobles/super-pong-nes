@@ -3,7 +3,7 @@
 .include "input_inc.s"
 .include "render_inc.s"
 
-.globalzp   frame, temp, game_state_data
+.globalzp   temp, game_state_data
 .global     game_state_updater_ret_addr, game_state_updater
 
 ;;; nametable of play area
@@ -60,7 +60,7 @@ player_points = game_state_data+0   ; 2 byte BCD array
 
     ;;; create left paddle
     INX
-    SET_ACTOR_FLAGS %11000000
+    SET_ACTOR_FLAGS %11110000
     SET_ACTOR_ID 1
     SET_ACTOR_POS {50}, {240/2}
     SET_ACTOR_UPDATER update_paddle
@@ -70,7 +70,7 @@ player_points = game_state_data+0   ; 2 byte BCD array
 
     ;;; create right paddle
     INX
-    SET_ACTOR_FLAGS %11000001
+    SET_ACTOR_FLAGS %11110001
     SET_ACTOR_ID 1
     SET_ACTOR_POS {256-50-8}, {240/2}
     SET_ACTOR_UPDATER update_paddle
@@ -324,18 +324,18 @@ player_points = game_state_data+0   ; 2 byte BCD array
 .proc render_ball
     .import push_sprite
 
-    LDA actor_xs,X 
+    LDA actor_xs,X
     STA temp+0                  ; pass X position
-    LDA actor_ys,X          
+    LDA actor_ys,X
     STA temp+1                  ; pass Y position
     LDA #SPRITE_ATTR_PALETTE{1}
-    STA temp+2                  ; pass attribute parameter 
+    STA temp+2                  ; pass attribute parameter
 
     LDA #$01                    ; ball sprite
     JSR push_sprite
 
     JMP (actor_renderer_ret_addr)
-.endproc 
+.endproc
 
 
 ;;; paddle actor update procedure
@@ -398,7 +398,7 @@ player_points = game_state_data+0   ; 2 byte BCD array
     ;;; draw top of paddle
     LDA actor_xs,X
     STA temp+0      ; pass X position parameter
-    LDA actor_ys,X 
+    LDA actor_ys,X
     STA temp+1      ; pass Y position parameter
     LDA #SPRITE_ATTR_PALETTE{0}
     STA temp+2      ; pass attribute parameter
@@ -523,7 +523,7 @@ player_points = game_state_data+0   ; 2 byte BCD array
 ;;; overwrites:
 ;;;     A
 .proc init_ball
-    SET_ACTOR_FLAGS %10000000
+    SET_ACTOR_FLAGS %01110000
     SET_ACTOR_ID 0
     SET_ACTOR_POS {::BALL_START_X}, {::BALL_START_Y}
     SET_ACTOR_UPDATER update_ball

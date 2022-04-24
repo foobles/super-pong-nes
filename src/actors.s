@@ -9,9 +9,16 @@ MAX_ACTORS = 16
     .exportzp actor_flags, actor_ids, actor_xs, actor_ys, actor_updaters_lo, actor_updaters_hi, actor_renderers_lo, actor_renderers_hi
     ;;; flag format
     ;;; 76543210
-    ;;; ||++++++- [0-5] for use by actor
-    ;;; |+------- [6]   enable collision (other entities can collide with this) [0=off; 1=on]
-    ;;; +-------- [7]   actor exists [0=empty slot; 1=filled slot]
+    ;;; ||||++++- [0-3]  for use by actor
+    ;;; |||+----- [4]    actor exists (can only be 0 when all other bits 0) [0=nonexistent; 1=exists]
+    ;;; ||+------ [5]    enable updates [0=off; 1=on]
+    ;;; |+------- [6]    enable rendering [0=off; 1=on]
+    ;;; +-------- [7]    enable collision (other entities can collide with this) [0=off; 1=on]
+    ;;;
+    ;;; flag[4] only allowed to be 0 when all other bits are also 0 means
+    ;;; that if rendering, updates, or collision bits are 1, then the actor
+    ;;; must exist. Likewise, the flag byte can be simply checked for 0 to see
+    ;;; if the actor exists rather than needing to test the exact bit.
     ;;;
     ;;; only use the first MAX_ACTORS indices. The +1 at the end acts as a sentinel and should not be overwritten
     actor_flags:    .res MAX_ACTORS+1
@@ -68,11 +75,11 @@ MAX_ACTORS = 16
 .proc find_next_empty_actor
     INC actor_count
     LDX actor_next_idx
-    ;;; scan forward until arriving at a flag with bit 7 reset
+    ;;; scan forward until arriving at a slot with zeroed flag
     loop:
         INX
         LDA actor_flags,X
-        BMI loop
+        BNE loop
 
     STX actor_next_idx
     RTS
@@ -87,7 +94,7 @@ MAX_ACTORS = 16
 ;;;
 ;;; overwrites:
 ;;;     A, X
-;;;     current
+;;;     current actor flag
 .export remove_actor
 .proc remove_actor
     LDA #0
@@ -108,17 +115,18 @@ MAX_ACTORS = 16
     ;;; loop backwards through actor array calling update routines
     LDX #MAX_ACTORS-1
     update:
-        ;;; skip nonexistant  actors
-        LDA actor_flags,X 
-        BPL actor_updater_ret
+        ;;; skip if updates disabled (bit 5)
+        LDA actor_flags,X
+        AND #(1<<5)
+        BEQ actor_updater_ret
         ;;; move updater routine into temp
-        LDA actor_updaters_lo,X 
+        LDA actor_updaters_lo,X
         STA call_addr+0
-        LDA actor_updaters_hi,X 
+        LDA actor_updaters_hi,X
         STA call_addr+1
         JMP (call_addr)         ; call update routine
         ::actor_updater_ret:
-        DEX  
+        DEX
         BPL update
     RTS
 .endproc
@@ -128,7 +136,8 @@ MAX_ACTORS = 16
     .local call_addr
     call_addr = temp+0          ; 2 byte address
     LDA actor_flags,X
-    BPL renderer_return_label   ; skip nonexistant actors
+    AND #(1<<6)
+    BEQ renderer_return_label   ; skip if rendering not enabled (bit 6)
         ;;; fetch update routine index
         LDA actor_renderers_lo,X
         STA call_addr+0
@@ -180,7 +189,7 @@ MAX_ACTORS = 16
 ;;; calling convention for update routines:
 ;;; parameters:
 ;;;     X:                  index of actor being updated
-;;;     
+;;;
 ;;; must preserve:
 ;;;     X
 ;;;
@@ -227,8 +236,7 @@ MAX_ACTORS = 16
     BMI ret             ; loop until X = -1 (please dont have 128+ MAX_ACTORS)
 
         LDA actor_flags,Y
-        AND #%01000000
-        BEQ continue    ; skip if flag bit 6 (collision enable) is not set
+        BPL continue    ; skip if flag bit 7 (collision enable) is not set
 
         LDA actor_xs,Y
         ADC actor_collisions_x,Y
