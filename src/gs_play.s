@@ -99,17 +99,17 @@ player_points = game_state_data+0   ; 2 byte BCD array
 ;;; ball actor update procedure
 ;;;
 ;;; data format:
-;;;     flags:  76543210
-;;;             |||||||+- 0: horizontal direction [0=right; 1=left]
-;;;             ||||||+-- 1: vertical direction [0=down; 1=up]
-;;;             XXXXXX
+;;;     flags:  3 2 1 0
+;;;             | | | +- 0: horizontal direction [0=right; 1=left]
+;;;             | | +--- 1: vertical direction [0=down; 1=up]
+;;;             X X
 ;;;
 ;;;     data0:  X subpixel position
 ;;;     data1:  Y subpixel position
 ;;;     data2:  vertical speed
-;;;         76543210
-;;;         ||||||++- [0-1]:    coarse pixel speed
-;;;         ++++++--- [2-7]:    subpixel speed
+;;;         7 6 5 4 3 2 1 0
+;;;         | | | | | | +-+- [0-1]: coarse pixel speed
+;;;         +-+-+-+-+-+----- [2-7]: subpixel speed
 .proc update_ball
     .import check_actor_collisions
 
@@ -340,9 +340,9 @@ player_points = game_state_data+0   ; 2 byte BCD array
 
 ;;; paddle actor update procedure
 ;;; data format:
-;;;     flags:  76543210
-;;;             |||||||+- 0: player [0=player 1; 1=player 2]
-;;;             XXXXXXX
+;;;     flags:  3 2 1 0
+;;;             | | | +- 0: player [0=player 1; 1=player 2]
+;;;             X X X
 ;;;
 ;;;     data0:  X subpixel position
 ;;;     data1:  Y subpixel position

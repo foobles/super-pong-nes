@@ -1,25 +1,11 @@
+.include "actors_inc.s"
+
 .globalzp temp, frame
 
-;;; work best as powers of 2 for easily checking bit patterns
-;;; if these are changed to be not powers of 2, be sure to check over
-;;; logic that works with the actor arrays
-.export MAX_ACTORS
-MAX_ACTORS = 16
 .zeropage
-    .exportzp actor_flags, actor_ids, actor_xs, actor_ys, actor_updaters_lo, actor_updaters_hi, actor_renderers_lo, actor_renderers_hi
-    ;;; flag format
-    ;;; 76543210
-    ;;; ||||++++- [0-3]  for use by actor
-    ;;; |||+----- [4]    actor exists (can only be 0 when all other bits 0) [0=nonexistent; 1=exists]
-    ;;; ||+------ [5]    enable updates [0=off; 1=on]
-    ;;; |+------- [6]    enable rendering [0=off; 1=on]
-    ;;; +-------- [7]    enable collision (other entities can collide with this) [0=off; 1=on]
-    ;;;
-    ;;; flag[4] only allowed to be 0 when all other bits are also 0 means
-    ;;; that if rendering, updates, or collision bits are 1, then the actor
-    ;;; must exist. Likewise, the flag byte can be simply checked for 0 to see
-    ;;; if the actor exists rather than needing to test the exact bit.
-    ;;;
+    .exportzp actor_flags, actor_ids, actor_xs, actor_ys
+    .exportzp actor_updaters_lo, actor_updaters_hi, actor_renderers_lo, actor_renderers_hi
+
     ;;; only use the first MAX_ACTORS indices. The +1 at the end acts as a sentinel and should not be overwritten
     actor_flags:    .res MAX_ACTORS+1
     ;;; actor id used as index into jump tables and collision data
@@ -115,9 +101,9 @@ MAX_ACTORS = 16
     ;;; loop backwards through actor array calling update routines
     LDX #MAX_ACTORS-1
     update:
-        ;;; skip if updates disabled (bit 5)
+        ;;; skip if updates disabled
         LDA actor_flags,X
-        AND #(1<<5)
+        AND #ACTOR_FLAG_UPDATE
         BEQ actor_updater_ret
         ;;; move updater routine into temp
         LDA actor_updaters_lo,X
@@ -136,8 +122,8 @@ MAX_ACTORS = 16
     .local call_addr
     call_addr = temp+0          ; 2 byte address
     LDA actor_flags,X
-    AND #(1<<6)
-    BEQ renderer_return_label   ; skip if rendering not enabled (bit 6)
+    AND #ACTOR_FLAG_RENDER
+    BEQ renderer_return_label   ; skip if rendering not enabled
         ;;; fetch update routine index
         LDA actor_renderers_lo,X
         STA call_addr+0
@@ -236,7 +222,8 @@ MAX_ACTORS = 16
     BMI ret             ; loop until X = -1 (please dont have 128+ MAX_ACTORS)
 
         LDA actor_flags,Y
-        BPL continue    ; skip if flag bit 7 (collision enable) is not set
+        .assert (ACTOR_FLAG_COLLIDE = 1<<7), error
+        BPL continue    ; skip if collision is not enabled
 
         LDA actor_xs,Y
         ADC actor_collisions_x,Y
