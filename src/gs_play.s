@@ -3,7 +3,7 @@
 .include "input_inc.s"
 .include "render_inc.s"
 
-.globalzp   temp, game_state_data
+.globalzp   frame, temp, game_state_data
 .global     game_state_updater_ret_addr, game_state_updater
 
 ;;; nametable of play area
@@ -64,6 +64,7 @@ player_points = game_state_data+0   ; 2 byte BCD array
     SET_ACTOR_ID 1
     SET_ACTOR_POS {50}, {240/2}
     SET_ACTOR_UPDATER update_paddle
+    SET_ACTOR_RENDERER render_paddle
     FILL_ACTOR_DATA $00
     SET_ACTOR_HITBOX {0}, {0}, {8}, {8*5}
 
@@ -73,6 +74,7 @@ player_points = game_state_data+0   ; 2 byte BCD array
     SET_ACTOR_ID 1
     SET_ACTOR_POS {256-50-8}, {240/2}
     SET_ACTOR_UPDATER update_paddle
+    SET_ACTOR_RENDERER render_paddle
     FILL_ACTOR_DATA $00
     SET_ACTOR_HITBOX {0}, {0}, {8}, {8*5}
 
@@ -88,8 +90,9 @@ player_points = game_state_data+0   ; 2 byte BCD array
 .endproc
 
 .proc game_state_play
-    .import process_actors
-    JSR process_actors
+    .import update_actors, render_actors
+    JSR update_actors
+    JSR render_actors
     JMP game_state_updater_ret_addr
 .endproc
 
@@ -224,7 +227,6 @@ player_points = game_state_data+0   ; 2 byte BCD array
         LDA actor_xs,X
         ADC #X_SPEED
         STA actor_xs,X
-        STA temp+0      ; write x position parameter for push_sprite routine
 
         ;;; if X+8 is too high, then ball is hitting the right edge
         ;;; player 1 wins the round
@@ -243,7 +245,6 @@ player_points = game_state_data+0   ; 2 byte BCD array
         LDA actor_xs,X
         SBC #X_SPEED
         STA actor_xs,X
-        STA temp+0      ; write x position parameter for push_sprite routine
 
         ;;; if X goes too low, then ball is hitting left edge
         ;;; player 2 wins the round
@@ -289,7 +290,6 @@ player_points = game_state_data+0   ; 2 byte BCD array
         LDA actor_ys,X
         ADC coarse_y_speed
         STA actor_ys,X
-        STA temp+1      ; write y position parameter for push_sprite routine
 
         ;;; if y+8 is too high, flip direction bit
         CMP #240 - 8 - BOTTOM_PAD
@@ -305,7 +305,6 @@ player_points = game_state_data+0   ; 2 byte BCD array
         LDA actor_ys,X
         SBC coarse_y_speed
         STA actor_ys,X
-        STA temp+1      ; write y position parameter for push_sprite routine
 
         ;;; if y goes too low, flip direction bit
         CMP #TOP_PAD
@@ -318,17 +317,26 @@ player_points = game_state_data+0   ; 2 byte BCD array
         STA actor_flags,X
 
     move_y_end:
+    JMP actor_updater_ret
+.endproc
 
+;;; ball actor render procedure
+.proc render_ball
     .import push_sprite
 
+    LDA actor_xs,X 
+    STA temp+0                  ; pass X position
+    LDA actor_ys,X          
+    STA temp+1                  ; pass Y position
     LDA #SPRITE_ATTR_PALETTE{1}
-    STA temp+2                  ; pass attribute parameter to push_sprite routine
+    STA temp+2                  ; pass attribute parameter 
 
-    LDA #$01    ; ball sprite
+    LDA #$01                    ; ball sprite
     JSR push_sprite
 
-    JMP (actor_updater_ret_addr)
-.endproc
+    JMP (actor_renderer_ret_addr)
+.endproc 
+
 
 ;;; paddle actor update procedure
 ;;; data format:
@@ -369,7 +377,7 @@ player_points = game_state_data+0   ; 2 byte BCD array
     test_move_up:
     LDA button_state
     AND #JOY_BUTTON_UP
-    BEQ test_move_none
+    BEQ test_move_end
         ;;; move down
         SEC
         LDA paddle_sub_y,X
@@ -378,18 +386,20 @@ player_points = game_state_data+0   ; 2 byte BCD array
         LDA actor_ys,X
         SBC #Y_SPEED
         STA actor_ys,X
-
-    test_move_none:
-        LDA actor_ys,X
     test_move_end:
 
-    ;;; begin drawing sprite
+    JMP actor_updater_ret
+.endproc
+
+;;; paddle actor render procedure
+.proc render_paddle
     .import push_sprite
 
     ;;; draw top of paddle
-    STA temp+1      ; pass Y position parameter
     LDA actor_xs,X
     STA temp+0      ; pass X position parameter
+    LDA actor_ys,X 
+    STA temp+1      ; pass Y position parameter
     LDA #SPRITE_ATTR_PALETTE{0}
     STA temp+2      ; pass attribute parameter
     LDA #2          ; top of paddle sprite
@@ -420,7 +430,7 @@ player_points = game_state_data+0   ; 2 byte BCD array
 
     LDX temp+3      ; restore actor index
 
-    JMP (actor_updater_ret_addr)
+    JMP (actor_renderer_ret_addr)
 .endproc
 
 ;;; BCD increment of point value for player who scored.
@@ -502,7 +512,7 @@ player_points = game_state_data+0   ; 2 byte BCD array
     LDX #BALL_IDX
     JSR init_ball   ; reset ball to default position
 
-    JMP (actor_updater_ret_addr)
+    JMP actor_updater_ret
 .endproc
 
 ;;; basic ball initialization values
@@ -517,6 +527,7 @@ player_points = game_state_data+0   ; 2 byte BCD array
     SET_ACTOR_ID 0
     SET_ACTOR_POS {::BALL_START_X}, {::BALL_START_Y}
     SET_ACTOR_UPDATER update_ball
+    SET_ACTOR_RENDERER render_ball
     FILL_ACTOR_DATA $00
     RTS
 .endproc

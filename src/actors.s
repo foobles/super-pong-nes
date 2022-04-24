@@ -6,7 +6,7 @@
 .export MAX_ACTORS
 MAX_ACTORS = 16
 .zeropage
-    .exportzp actor_flags, actor_ids, actor_xs, actor_ys, actor_updaters_lo, actor_updaters_hi
+    .exportzp actor_flags, actor_ids, actor_xs, actor_ys, actor_updaters_lo, actor_updaters_hi, actor_renderers_lo, actor_renderers_hi
     ;;; flag format
     ;;; 76543210
     ;;; ||++++++- [0-5] for use by actor
@@ -24,6 +24,9 @@ MAX_ACTORS = 16
     ;;; updater routine address for actor (detailed below)
     actor_updaters_lo:  .res MAX_ACTORS
     actor_updaters_hi:  .res MAX_ACTORS
+    ;;; renderer routine address for actor (detailed below)
+    actor_renderers_lo:  .res MAX_ACTORS
+    actor_renderers_hi:  .res MAX_ACTORS
 
     .exportzp actor_count, actor_next_idx
     actor_count:    .res 1  ; number of existing actors
@@ -45,8 +48,8 @@ MAX_ACTORS = 16
     actor_data2:    .res MAX_ACTORS
     actor_data3:    .res MAX_ACTORS
 
-    .export actor_updater_ret_addr
-    actor_updater_ret_addr:
+    .export actor_renderer_ret_addr
+    actor_renderer_ret_addr:
         .align 2
         .res 2
 
@@ -97,68 +100,102 @@ MAX_ACTORS = 16
 .endproc
 
 
-.macro PROCESS_ACTOR updater_return_label
+;;; overwrites:
+;;;     A, X, temp+0.1
+.export update_actors, actor_updater_ret
+.proc update_actors
+    call_addr = temp+0          ; 2 byte address
+    ;;; loop backwards through actor array calling update routines
+    LDX #MAX_ACTORS-1
+    update:
+        ;;; skip nonexistant  actors
+        LDA actor_flags,X 
+        BPL actor_updater_ret
+        ;;; move updater routine into temp
+        LDA actor_updaters_lo,X 
+        STA call_addr+0
+        LDA actor_updaters_hi,X 
+        STA call_addr+1
+        JMP (call_addr)         ; call update routine
+        ::actor_updater_ret:
+        DEX  
+        BPL update
+    RTS
+.endproc
+
+
+.macro RENDER_ACTOR renderer_return_label
     .local call_addr
     call_addr = temp+0          ; 2 byte address
     LDA actor_flags,X
-    BPL updater_return_label    ; skip nonexistant actors
+    BPL renderer_return_label   ; skip nonexistant actors
         ;;; fetch update routine index
-        LDA actor_updaters_lo,X
+        LDA actor_renderers_lo,X
         STA call_addr+0
-        LDA actor_updaters_hi,X
+        LDA actor_renderers_hi,X
         STA call_addr+1
-        JMP (call_addr)         ; dive into the update routine
-    updater_return_label:
+        JMP (call_addr)         ; dive into the render routine
+    renderer_return_label:
 .endmacro
 
 ;;; overwrites:
-;;;     A, X, temp+0.1, actor_updater_ret_addr
-.export process_actors
-.proc process_actors
-    ret_addr = actor_updater_ret_addr   ; the name is long
+;;;     A, X, temp+0.1, actor_renderer_ret_addr
+.export render_actors
+.proc render_actors
+    ret_addr = actor_renderer_ret_addr  ; the name is long
     ;;; switch between forward iteration and backward iteration
     ;;; every frame so that rendering produces flicker automatically
     LDA frame
     LSR A
-    BCC begin_update_backward
+    BCC begin_render_backward
 
     ;;; fallthrough if C set
-    begin_update_forward:
-        LDA #<ret_update_forward
+    begin_render_forward:
+        LDA #<ret_render_forward
         STA ret_addr+0
-        LDA #>ret_update_forward
+        LDA #>ret_render_forward
         STA ret_addr+1
         LDX #0
-    update_forward:
-        PROCESS_ACTOR ret_update_forward
+    render_forward:
+        RENDER_ACTOR ret_render_forward
         INX
         CPX #MAX_ACTORS
-        BNE update_forward
+        BNE render_forward
     RTS
 
-    begin_update_backward:
-        LDA #<ret_update_backward
+    begin_render_backward:
+        LDA #<ret_render_backward
         STA ret_addr+0
-        LDA #>ret_update_backward
+        LDA #>ret_render_backward
         STA ret_addr+1
-        LDX #MAX_ACTORS
-    update_backward:
+        LDX #MAX_ACTORS-1
+    render_backward:
+        RENDER_ACTOR ret_render_backward
         DEX
-        PROCESS_ACTOR ret_update_backward
-        TXA
-        BNE update_backward
+        BPL render_backward
     RTS
 .endproc
 
+
 ;;; calling convention for update routines:
 ;;; parameters:
-;;;     X:                          index of actor being updated
-;;;     actor_updater_ret_addr:     return address
+;;;     X:                  index of actor being updated
+;;;     
+;;; must preserve:
+;;;     X
+;;;
+;;; return by [JMP actor_updater_ret] or equivalent
+
+
+;;; calling convention for render routines:
+;;; parameters:
+;;;     X:                          index of actor being rendered
+;;;     actor_renderer_ret_addr:    return address
 ;;;
 ;;; must preserve:
-;;;     X, actor_updater_ret_addr
+;;;     X, actor_renderer_ret_addr
 ;;;
-;;; return by JMP (actor_updater_ret_addr) or equivalent
+;;; return indirectly by [JMP (actor_renderer_ret_addr)] or equivalent
 
 
 ;;; parameters:

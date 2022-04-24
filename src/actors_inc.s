@@ -1,10 +1,10 @@
 .globalzp   temp
-.importzp   actor_flags, actor_ids, actor_xs, actor_ys, actor_updaters_lo, actor_updaters_hi
+.importzp   actor_flags, actor_ids, actor_xs, actor_ys, actor_updaters_lo, actor_updaters_hi, actor_renderers_lo, actor_renderers_hi
 .import     actor_collisions_x, actor_collisions_y, actor_collisions_w, actor_collisions_h
 .import     actor_data0, actor_data1, actor_data2, actor_data3
 .importzp   actor_next_idx, actor_count
 
-.import actor_updater_ret_addr
+.import actor_updater_ret, actor_renderer_ret_addr
 
 
 ;;; parameters:
@@ -47,6 +47,17 @@
     STA ::actor_updaters_lo,X
     LDA #>updater
     STA ::actor_updaters_hi,X
+.endmacro
+
+;;; parameters:
+;;;     X: actor to set renderer for
+;;; overwrites:
+;;;     A
+.macro SET_ACTOR_RENDERER renderer
+    LDA #<renderer
+    STA ::actor_renderers_lo,X
+    LDA #>renderer
+    STA ::actor_renderers_hi,X
 .endmacro
 
 ;;; parameters:
