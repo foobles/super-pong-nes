@@ -21,9 +21,8 @@
     actor_renderers_lo:  .res MAX_ACTORS
     actor_renderers_hi:  .res MAX_ACTORS
 
-    .exportzp actor_count, actor_next_idx
-    actor_count:    .res 1  ; number of existing actors
-    actor_next_idx: .res 1  ; lowest index of actor with bit 7 = 0
+    .exportzp actor_next_idx
+    actor_next_idx: .res 1  ; lowest index of actor with flags zero
 
 .bss
     ;;; collision data
@@ -59,7 +58,6 @@
 ;;;     A, X, actor_next_idx
 .export find_next_empty_actor
 .proc find_next_empty_actor
-    INC actor_count
     LDX actor_next_idx
     ;;; scan forward until arriving at a slot with zeroed flag
     loop:

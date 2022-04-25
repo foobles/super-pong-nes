@@ -2,7 +2,7 @@
 .globalzp   actor_updaters_lo, actor_updaters_hi, actor_renderers_lo, actor_renderers_hi
 .global     actor_collisions_x, actor_collisions_y, actor_collisions_w, actor_collisions_h
 .global     actor_data0, actor_data1, actor_data2, actor_data3
-.globalzp   actor_next_idx, actor_count
+.globalzp   actor_next_idx
 
 .global     actor_updater_ret, actor_renderer_ret_addr
 
