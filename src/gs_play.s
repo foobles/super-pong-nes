@@ -6,6 +6,9 @@
 .globalzp   temp, game_state_data
 .global     game_state_updater_ret_addr, game_state_updater
 
+.import update_actors, render_actors
+
+
 ;;; nametable of play area
 GS_PLAY_NAMETABLE_HI = $20
 
@@ -18,13 +21,19 @@ GS_PLAY_NAMETABLE_HI = $20
 BALL_START_X = (256 - 8) / 2
 BALL_START_Y = (240 / 2) + 16
 
-player_points = game_state_data+0   ; 2 byte BCD array
+;;; timing information for ball blinking effect between plays
+BALL_BLINK_COUNT    = 6
+BALL_BLINK_INTERVAL = 30
+BALL_BLINK_DELAY    = 60
 
+player_points   = game_state_data+0   ; 2 byte BCD array
+timer           = game_state_data+2
+blink_count     = game_state_data+3
 
 .code
 
-.export transition_game_state_play
-.proc transition_game_state_play
+.export begin_game_serve_ball
+.proc begin_game_serve_ball
     ;;; run palette setup as render queue
     .import process_render_queue
     .import palette_setup_render_buf, PALETTE_SETUP_RENDER_BUF_LEN:zeropage
@@ -49,52 +58,69 @@ player_points = game_state_data+0   ; 2 byte BCD array
     STA ppuaddr
     JSR process_compressed
 
-    ;;; create entities
-    ;;;
-    ;;; ball and paddles occupy fixed locations in the actor array
-    ;;; given by the enum at the top of the file
+    ;;; tail call fallthrough into next routine
+    .assert * = transition_game_state_serve_ball, error
+.endproc
 
-    ;;; create ball
-    LDX #BALL_IDX
-    JSR init_ball
-
-    ;;; create left paddle
-    INX
-    SET_ACTOR_FLAGS %11110000
-    SET_ACTOR_ID 1
-    SET_ACTOR_POS {50}, {240/2}
-    SET_ACTOR_UPDATER update_paddle
-    SET_ACTOR_RENDERER render_paddle
-    FILL_ACTOR_DATA $00
-    SET_ACTOR_HITBOX {0}, {0}, {8}, {8*5}
-
-    ;;; create right paddle
-    INX
-    SET_ACTOR_FLAGS %11110001
-    SET_ACTOR_ID 1
-    SET_ACTOR_POS {256-50-8}, {240/2}
-    SET_ACTOR_UPDATER update_paddle
-    SET_ACTOR_RENDERER render_paddle
-    FILL_ACTOR_DATA $00
-    SET_ACTOR_HITBOX {0}, {0}, {8}, {8*5}
-
-    INX
-    STX actor_next_idx
-
+.proc transition_game_state_serve_ball
+    JSR init_entities
+    ;;; transition state for next frame
+    LDA #BALL_BLINK_DELAY
+    STA timer
+    LDA #BALL_BLINK_COUNT
+    STA blink_count
     ;;; set state update routine
-    LDA #<game_state_play
+    LDA #<game_state_serve_ball
     STA game_state_updater+0
-    LDA #>game_state_play
+    LDA #>game_state_serve_ball
     STA game_state_updater+1
+
     RTS
 .endproc
 
 .proc game_state_play
-    .import update_actors, render_actors
     JSR update_actors
     JSR render_actors
     JMP game_state_updater_ret_addr
 .endproc
+
+
+.proc game_state_serve_ball
+    JSR update_actors
+    JSR render_actors
+
+    ;;; tick down timer
+    DEC timer
+    BNE ret
+
+    ;;; if timer has counted down, decrement remaining blinks
+    DEC blink_count
+    ;;; if done blinking, begin game
+    BEQ transition_state
+    ;;; else, reset timer and flip ball visibility bit
+    LDA #BALL_BLINK_INTERVAL
+    STA timer
+    LDA #ACTOR_FLAG_RENDER
+    EOR actor_flags+BALL_IDX
+    STA actor_flags+BALL_IDX
+
+    ret:
+    JMP game_state_updater_ret_addr
+
+
+    transition_state:
+    ;;; enable ball movement
+    LDA #ACTOR_FLAG_UPDATE
+    ORA actor_flags+BALL_IDX
+    STA actor_flags+BALL_IDX
+    ;;; change to playing state
+    LDA #<game_state_play
+    STA game_state_updater+0
+    LDA #>game_state_play
+    STA game_state_updater+1
+    JMP game_state_updater_ret_addr
+.endproc
+
 
 ;;; ball actor update procedure
 ;;;
@@ -508,26 +534,52 @@ player_points = game_state_data+0   ; 2 byte BCD array
     ADC #6
     STA render_queue_len
 
+    JSR transition_game_state_serve_ball
+
     ;;; assumption: this routine is only called from actor at index #BALL_INDEX
     LDX #BALL_IDX
-    JSR init_ball   ; reset ball to default position
-
     JMP actor_updater_ret
 .endproc
 
-;;; basic ball initialization values
-;;;
-;;; parameters:
-;;;     X: index of ball in actor array
+;;; basic initialization values for ball and paddles
 ;;;
 ;;; overwrites:
-;;;     A
-.proc init_ball
-    SET_ACTOR_FLAGS %01110000
+;;;     A, X
+.proc init_entities
+    ;;; ball and paddles occupy fixed locations in the actor array
+    ;;; given by the enum at the top of the file
+
+    ;;; create ball
+    LDX #BALL_IDX
+    SET_ACTOR_FLAGS %00010000
     SET_ACTOR_ID 0
     SET_ACTOR_POS {::BALL_START_X}, {::BALL_START_Y}
     SET_ACTOR_UPDATER update_ball
     SET_ACTOR_RENDERER render_ball
     FILL_ACTOR_DATA $00
+
+    ;;; create left paddle
+    INX
+    SET_ACTOR_FLAGS %11110000
+    SET_ACTOR_ID 1
+    SET_ACTOR_POS {50}, {240/2}
+    SET_ACTOR_UPDATER update_paddle
+    SET_ACTOR_RENDERER render_paddle
+    FILL_ACTOR_DATA $00
+    SET_ACTOR_HITBOX {0}, {0}, {8}, {8*5}
+
+    ;;; create right paddle
+    INX
+    SET_ACTOR_FLAGS %11110001
+    SET_ACTOR_ID 1
+    SET_ACTOR_POS {256-50-8}, {240/2}
+    SET_ACTOR_UPDATER update_paddle
+    SET_ACTOR_RENDERER render_paddle
+    FILL_ACTOR_DATA $00
+    SET_ACTOR_HITBOX {0}, {0}, {8}, {8*5}
+
+    INX
+    STX actor_next_idx
+
     RTS
 .endproc
