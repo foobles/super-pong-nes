@@ -26,6 +26,12 @@ BALL_BLINK_COUNT    = 6
 BALL_BLINK_INTERVAL = 30
 BALL_BLINK_DELAY    = 60
 
+;;; playfield pixel padding from edge of screen inwards
+LEFT_PAD    = 8*2
+RIGHT_PAD   = 8*2
+TOP_PAD     = 8*9 - 1   ; +1 / -1 to account for sprites being rendered 1px down
+BOTTOM_PAD  = 8*3 + 1
+
 player_points   = game_state_data+0   ; 2 byte BCD array
 timer           = game_state_data+2
 blink_count     = game_state_data+3
@@ -138,11 +144,6 @@ blink_count     = game_state_data+3
 ;;;         +-+-+-+-+-+----- [2-7]: subpixel speed
 .proc update_ball
     .import check_actor_collisions
-
-    LEFT_PAD    = 8*2
-    RIGHT_PAD   = 8*2
-    TOP_PAD     = 8*9
-    BOTTOM_PAD  = 8*3
 
     X_SUB_SPEED = (1 << 8) / 3
     X_SPEED     = 1
@@ -397,13 +398,18 @@ blink_count     = game_state_data+3
         STA paddle_sub_y,X
         LDA actor_ys,X
         ADC #Y_SPEED
+        ;;; saturate height if attempt to move down out of play area
+        CMP #240-BOTTOM_PAD-40        ; A+40 > 240-BOTTOM_PAD
+        BCC :+
+            LDA #240-BOTTOM_PAD-40
+        :
         STA actor_ys,X
-        JMP test_move_end
+        JMP actor_updater_ret
 
     test_move_up:
     LDA button_state
     AND #JOY_BUTTON_UP
-    BEQ test_move_end
+    BEQ return
         ;;; move down
         SEC
         LDA paddle_sub_y,X
@@ -411,9 +417,13 @@ blink_count     = game_state_data+3
         STA paddle_sub_y,X
         LDA actor_ys,X
         SBC #Y_SPEED
+        ;;; saturate height if attempt to move down out of play area
+        CMP #TOP_PAD
+        BCS :+
+            LDA #TOP_PAD
+        :
         STA actor_ys,X
-    test_move_end:
-
+    return:
     JMP actor_updater_ret
 .endproc
 
