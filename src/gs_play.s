@@ -47,10 +47,10 @@ blink_count     = game_state_data+3
 
     ;;; write title screen to nametable 0 (at $2000)
     .import process_compressed
-    .import title_screen_render_buf
-    LDA #<title_screen_render_buf
+    .import playfield_render_buf
+    LDA #<playfield_render_buf
     STA temp+0
-    LDA #>title_screen_render_buf
+    LDA #>playfield_render_buf
     STA temp+1
     LDA #GS_PLAY_NAMETABLE_HI
     STA ppuaddr
@@ -139,10 +139,10 @@ blink_count     = game_state_data+3
 .proc update_ball
     .import check_actor_collisions
 
-    LEFT_PAD    = 8
-    RIGHT_PAD   = 8
-    TOP_PAD     = 100
-    BOTTOM_PAD  = 32
+    LEFT_PAD    = 8*2
+    RIGHT_PAD   = 8*2
+    TOP_PAD     = 8*9
+    BOTTOM_PAD  = 8*3
 
     X_SUB_SPEED = (1 << 8) / 3
     X_SPEED     = 1
@@ -504,7 +504,7 @@ blink_count     = game_state_data+3
     ASL A
     ASL A
     ASL A
-    ADC #32+6  ; assume C is 0 from shifts/rotates above
+    ADC #32*4 + 7   ; assume C is 0 from shifts/rotates above
     STA render_queue+1,Y
 
     ;;; pass length of score text (always 2 digits)
