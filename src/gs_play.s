@@ -59,7 +59,7 @@ blink_count     = game_state_data+3
     STA temp+2
     JSR process_render_queue
 
-    ;;; write title screen to nametable 0 (at $2000)
+    ;;; write playfield nametable
     .import process_compressed
     .import playfield_render_buf
     LDA #<playfield_render_buf
