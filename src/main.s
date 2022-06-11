@@ -1,4 +1,3 @@
-.linecont +
 .include "ppu_inc.s"
 .include "render_inc.s"
 
@@ -84,14 +83,7 @@
     frame1: BIT ppustatus
             BPL frame1
 
-    ;;; buffer enable nmi, initialize starting game state
     .importzp local_ppuctrl, local_ppumask
-    LDA #PPUCTRL_ENABLE_NMI \
-            | PPUCTRL_VRAM_INC_1 \
-            | PPUCTRL_TILE_TABLE{0} \
-            | PPUCTRL_SPRITE_TABLE{1} \
-            | PPUCTRL_NAMETABLE{0}
-    STA local_ppuctrl
 
     ;;; buffer enable rendering
     LDA #PPUMASK_SHOW_ALL

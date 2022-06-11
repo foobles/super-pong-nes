@@ -10,7 +10,8 @@
 
 
 ;;; nametable of play area
-GS_PLAY_NAMETABLE_HI = $20
+GS_PLAY_NAMETABLE_IDX = 2
+GS_PLAY_NAMETABLE_HI = $20 + GS_PLAY_NAMETABLE_IDX*$04
 
 .enum
     BALL_IDX            = 0
@@ -40,6 +41,13 @@ blink_count     = game_state_data+3
 
 .export begin_game_serve_ball
 .proc begin_game_serve_ball
+    ;;; set ppuctrl to correct nametable
+    .importzp local_ppuctrl, local_ppuscroll_y
+    LDA #PPUCTRL_COMMON | PPUCTRL_NAMETABLE{GS_PLAY_NAMETABLE_IDX}
+    STA local_ppuctrl
+    LDA #0
+    STA local_ppuscroll_y
+
     ;;; run palette setup as render queue
     .import process_render_queue
     .import palette_setup_render_buf, PALETTE_SETUP_RENDER_BUF_LEN:zeropage
