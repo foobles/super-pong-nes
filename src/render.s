@@ -3,10 +3,13 @@
 .globalzp temp
 
 .zeropage
-    .exportzp local_ppuctrl, local_ppumask, nmi_handler_done, oam_stack_idx
-    local_ppuctrl:  .res 1
-    local_ppumask:  .res 1
+    .exportzp local_ppuctrl, local_ppumask, local_ppuscroll_x, local_ppuscroll_y
+    local_ppuctrl:      .res 1
+    local_ppumask:      .res 1
+    local_ppuscroll_x:  .res 1
+    local_ppuscroll_y:  .res 1
 
+    .exportzp nmi_handler_done, oam_stack_idx
     ;;; not done:   %0000000
     ;;; done:       %1000000
     nmi_handler_done:   .res 1
@@ -51,9 +54,12 @@
     STA ppuctrl
 
     ;;; update scroll position
+    LDA local_ppuscroll_x
+    STA ppuscroll        
+    LDA local_ppuscroll_y   
+    STA ppuscroll          
+
     LDA #0
-    STA ppuscroll           ; x scroll
-    STA ppuscroll           ; y scroll
     STA render_queue_len    ; reset queue length for next frame
 
     ;;; set bit 7 of nmi_handler_done

@@ -4,7 +4,7 @@
 
 PRG_PAGE_COUNT  = 2     ; 16 KiB per page
 CHR_PAGE_COUNT  = 1     ; 8 KiB per page; 0 = CHR RAM
-MIRRORING       = 1     ; 0 = horizontal; 1 = vertical
+MIRRORING       = 0     ; 0 = horizontal; 1 = vertical
 MAPPER_NO       = 0     ; NROM
 
 .segment "HEADER"
