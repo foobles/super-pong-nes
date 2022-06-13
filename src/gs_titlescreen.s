@@ -9,8 +9,6 @@ GS_TITLESCREEN_NAMETABLE_HI     = $20 + GS_TITLESCREEN_NAMETABLE_IDX*$04
 
 SCROLL_SPEED = 2
 
-begin_scroll_countdown = game_state_data+0
-
 .code
 
 .export begin_game_titlescreen
@@ -47,9 +45,6 @@ begin_scroll_countdown = game_state_data+0
     STA game_state_updater+0
     LDA #>game_state_titlescreen
     STA game_state_updater+1
-
-    LDA #$FF
-    STA begin_scroll_countdown
 
     RTS
 .endproc
