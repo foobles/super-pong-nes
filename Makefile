@@ -2,7 +2,7 @@
 
 # update sources manually here
 # everything else should be automatic
-SOURCES = header.s chars.s render.s input.s actors.s gs_play.s main.s
+SOURCES = header.s chars.s render.s input.s actors.s gs_titlescreen.s gs_play.s main.s
 
 AS = ca65
 LD = ld65

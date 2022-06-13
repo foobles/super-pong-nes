@@ -52,3 +52,8 @@ PALETTE_SETUP_RENDER_BUF_LEN = <(palette_setup_render_buf::end - palette_setup_r
 .export playfield_render_buf
 playfield_render_buf:
 .incbin "playfield.map"
+
+
+.export titlescreen_render_buf
+titlescreen_render_buf:
+.incbin "titlescreen.map"

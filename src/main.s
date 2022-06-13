@@ -90,8 +90,8 @@
     STA local_ppumask
 
     ;;; set initial gamestate
-    .import begin_game_serve_ball
-    JSR begin_game_serve_ball
+    .import begin_game_titlescreen
+    JSR begin_game_titlescreen
 
     ;;; process buffered PPU updates
     LDA local_ppumask

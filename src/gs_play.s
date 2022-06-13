@@ -42,22 +42,14 @@ blink_count     = game_state_data+3
 .export begin_game_serve_ball
 .proc begin_game_serve_ball
     ;;; set ppuctrl to correct nametable
-    .importzp local_ppuctrl, local_ppuscroll_y
-    LDA #PPUCTRL_COMMON | PPUCTRL_NAMETABLE{GS_PLAY_NAMETABLE_IDX}
-    STA local_ppuctrl
-    LDA #0
-    STA local_ppuscroll_y
+    .importzp local_ppuctrl, local_ppumask, local_ppuscroll_y
 
-    ;;; run palette setup as render queue
-    .import process_render_queue
-    .import palette_setup_render_buf, PALETTE_SETUP_RENDER_BUF_LEN:zeropage
-    LDA #<palette_setup_render_buf
-    STA temp+0
-    LDA #>palette_setup_render_buf
-    STA temp+1
-    LDA #PALETTE_SETUP_RENDER_BUF_LEN
-    STA temp+2
-    JSR process_render_queue
+    ;;; disable rendering and NMIs for long ppu operation
+    LDA #0
+    STA ppuctrl
+    STA ppumask
+    ;;; reset scroll
+    STA local_ppuscroll_y
 
     ;;; write playfield nametable
     .import process_compressed
@@ -71,6 +63,14 @@ blink_count     = game_state_data+3
     LDA #$00
     STA ppuaddr
     JSR process_compressed
+
+    ;;; restore rendering and NMIs, update locals
+    LDA #PPUCTRL_COMMON | PPUCTRL_NAMETABLE{GS_PLAY_NAMETABLE_IDX}
+    STA ppuctrl
+    STA local_ppuctrl
+    LDA #PPUMASK_SHOW_ALL
+    STA ppumask
+    STA local_ppumask
 
     ;;; tail call fallthrough into next routine
     .assert * = transition_game_state_serve_ball, error
