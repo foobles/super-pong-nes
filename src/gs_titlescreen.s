@@ -1,5 +1,6 @@
 .include "ppu_inc.s"
 .include "render_inc.s"
+.include "gamestate_inc.s"
 
 .globalzp   temp, game_state_data
 .global     game_state_updater_ret_addr, game_state_updater
@@ -41,12 +42,7 @@ SCROLL_SPEED = 2
     STA ppuaddr
     JSR process_compressed
 
-    LDA #<game_state_titlescreen
-    STA game_state_updater+0
-    LDA #>game_state_titlescreen
-    STA game_state_updater+1
-
-    RTS
+    SET_GAME_STATE_RET_SUB {game_state_titlescreen}
 .endproc
 
 .proc game_state_titlescreen

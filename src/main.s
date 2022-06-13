@@ -18,6 +18,51 @@
 
 .code
 
+;;; parameters:
+;;;     inline double-byte: new game state address
+;;;     C flag:
+;;;         0 = return from CALLING function via RTS
+;;;         1 = return to game_state_updater_ret_addr
+;;;
+;;; overwrites:
+;;;     A, Y, temp+0.1
+;;;
+;;; note:
+;;;     You must call this routine via a JSR instruction immediately followed by the 2-byte paramter
+;;;     inlined at the callsite, e.g.,
+;;;
+;;;         JSR set_gamestate_updater
+;;;         .addr new_game_state
+;;;
+;;;     This method either returns from the routine which invoked it via RTS (if C = 0),
+;;;     or it will return directly to game_state_updater_ret_addr (if C = 1).
+;;;     Therefore, this routine only works as a tail-call.
+.export set_game_state_updater
+.proc set_game_state_updater
+    code_addr = temp+0
+
+    ;;; fetch pushed return address from JSR
+    PLA
+    STA code_addr+0
+    PLA
+    STA code_addr+1
+
+    ;;; code_addr is on byte before data
+    ;;; so load address offset by 1
+    LDY #1
+    LDA (code_addr),Y
+    STA game_state_updater+0
+    INY
+    LDA (code_addr),Y
+    STA game_state_updater+1
+
+    ;;; if C = 0, return with RTS
+    ;;; if C = 1, return to gamestate updater return address
+    BCS game_state_updater_ret_addr
+    RTS
+.endproc
+
+
 .macro WAIT_NMI
     .importzp nmi_handler_done
     :

@@ -2,6 +2,7 @@
 .include "ppu_inc.s"
 .include "input_inc.s"
 .include "render_inc.s"
+.include "gamestate_inc.s"
 
 .globalzp   temp, game_state_data
 .global     game_state_updater_ret_addr, game_state_updater
@@ -83,13 +84,8 @@ blink_count     = game_state_data+3
     STA timer
     LDA #BALL_BLINK_COUNT
     STA blink_count
-    ;;; set state update routine
-    LDA #<game_state_serve_ball
-    STA game_state_updater+0
-    LDA #>game_state_serve_ball
-    STA game_state_updater+1
 
-    RTS
+    SET_GAME_STATE_RET_SUB {game_state_serve_ball}
 .endproc
 
 .proc game_state_play
@@ -128,11 +124,7 @@ blink_count     = game_state_data+3
     ORA actor_flags+BALL_IDX
     STA actor_flags+BALL_IDX
     ;;; change to playing state
-    LDA #<game_state_play
-    STA game_state_updater+0
-    LDA #>game_state_play
-    STA game_state_updater+1
-    JMP game_state_updater_ret_addr
+    SET_GAME_STATE_RET_GS {game_state_play}
 .endproc
 
 
